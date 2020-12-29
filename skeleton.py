@@ -1,15 +1,21 @@
+import os
 import pygame as pg
 from pygame.locals import *
-import os
-
+from map import Generator
 
 current_dir = os.path.dirname(__file__)
 textures = os.path.join(current_dir, 'data')
 FPS = 60
-TILE_SIZE = 64
-MAP_SIZE = (11, 11)
-WIN_SIZE = pg.Rect(0, 0, MAP_SIZE[0] * TILE_SIZE, 
-                         MAP_SIZE[1] * TILE_SIZE)
+TILE_SIZE = 32
+WIN_SIZE = pg.Rect(0, 0, 1280, 800)
+
+TILES = {
+    ' ': 'space.bmp', # Пустота
+    '.': 'floor.bmp', # Пол
+    '#': 'wall.bmp', # Стена
+    '%': 'image_path', # Враг 1
+    ':': 'image_path' # Враг 2
+}
 
 
 def load_image(img, colorkey=None):
@@ -32,15 +38,32 @@ def load_image(img, colorkey=None):
 
 class Object(pg.sprite.Sprite):
     all_sprites = None
-    def __init__(self, pos, img=os.path.join(textures, 'none.png')):
+    hard_blocks = None
+
+    def __init__(self, pos, img=os.path.join(textures, 'none.png'), is_hard=False):
         super().__init__(Object.all_sprites)
-        self.img = img
-        self.image = load_image(self.img, -1)
+        self.image = load_image(os.path.join(textures, img))
         self.rect = self.image.get_rect()
         self.rect = self.rect.move(*pos)
 
     def update(self, *args):
         pass
+
+
+class Level:
+    def __init__(self):
+        generator = Generator(TILES)
+        self.level, starting_point = generator.level, generator.starting_point
+        self.width, self.height = generator.width, generator.height
+        self.load_map()
+
+    def load_map(self):
+        for y, line in enumerate(self.level):
+            for x, symbol in enumerate(line):
+                if symbol in TILES.keys():
+                    if symbol == ' ':
+                        continue
+                    Object((x * TILE_SIZE, y * TILE_SIZE), TILES[symbol])
 
 
 class Game:
@@ -55,8 +78,8 @@ class Game:
         self.hard_blocks = pg.sprite.Group()
         self.player = pg.sprite.Group()
         self.objects = pg.sprite.Group()
-        # Tile.all_sprites = self.all_sprites
-        # Tile.hard_blocks = self.hard_blocks
+        Object.all_sprites = self.all_sprites
+        Object.hard_blocks = self.hard_blocks
         # Player.player = self.player
         # когда появится класс предметов добавить в группу
 
@@ -91,6 +114,7 @@ class Game:
     def game_run(self):
         self.all_sprites.empty()
         self.game_running = True
+        self.level = Level()
         while self.game_running:
             self.game_events()
             self.game_update()
@@ -111,6 +135,7 @@ class Game:
 
     def game_render(self):
         self.screen.fill((0, 0, 0))
+        self.all_sprites.draw(self.screen)
         pg.display.update()
 
 
