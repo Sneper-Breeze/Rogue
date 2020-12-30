@@ -13,6 +13,7 @@ TILES = {
     ' ': 'space.bmp', # Пустота
     '.': 'floor.bmp', # Пол
     '#': 'wall.bmp', # Стена
+    '@': 'player.bmp', # Игрок
     '%': 'image_path', # Враг 1
     ':': 'image_path' # Враг 2
 }
@@ -50,49 +51,12 @@ class Object(pg.sprite.Sprite):
         pass
 
 
-class Entity(Object):
-	# Не уверен, что нужно делать all sprites для Entity, он же добавляется в all sprites у object
-	# Поэтому пока что закоменчу эту группу
-    # all_sprites = None
-    entities = None
-    def __init__(self, pos, hp, max_hp, damage, speed=ST_SPEED,
-    	img=os.path.join(textures, 'none.png')):
-        super().__init__(pos, img)
-        # super(Object, self).__init__(Entity.entities)
-        self.pos = pos
-        self.max_hp = max_hp
-        self.hp = hp
-        self.speed = speed
-        self.damage = damage
-        # self.add(Entity.all_sprites)
-        self.add(Entity.entities)
-
-    def get_hit(self, damage):
-        self.hp -= damage
-        if self.hp == 0:
-            self.death()
-
-    def death(self):
-        self.kill()
-
-    def hit(self, other):
-        other.get_hit(self.damage)
-
-    # проверку можно ли походить на новые координаты я думаю лучше сделать в
-    # игре когда она будет вызывать move, чтобы не передавать сюда level
-    def move(self, new_pos):
-        if new_pos[0] > self.pos[0] and new_pos[1] > self.pos[1] or max(abs(new_pos[0] - self.pos[0]),
-        	abs(new_pos[1] - self.pos[1])) > self.speed:
-        	return False
-        else:
-        	self.pos = new_pos
-
-
 class Level:
     def __init__(self):
         generator = Generator(TILES)
         self.level, starting_point = generator.level, generator.starting_point
         self.width, self.height = generator.width, generator.height
+        print(generator.room_list)
         self.load_map()
 
     def load_map(self):
@@ -116,10 +80,8 @@ class Game:
         self.hard_blocks = pg.sprite.Group()
         self.player = pg.sprite.Group()
         self.objects = pg.sprite.Group()
-	self.entities = pg.sprite.Group()
         Object.all_sprites = self.all_sprites
         Object.hard_blocks = self.hard_blocks
-	Entity.entities = self.entities
         # Player.player = self.player
         # когда появится класс предметов добавить в группу
 
@@ -164,6 +126,7 @@ class Game:
         for event in pg.event.get():
             if event.type == QUIT:
                 self.game_running = False
+                self.menu_running = False
             if event.type == KEYUP:
                 if event.key == K_ESCAPE:
                     self.game_running = False
