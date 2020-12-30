@@ -17,6 +17,7 @@ TILES = {
     '%': 'image_path', # Враг 1
     ':': 'image_path' # Враг 2
 }
+HARD_TILES = ['#']
 
 
 def load_image(img, colorkey=None):
@@ -43,6 +44,8 @@ class Object(pg.sprite.Sprite):
 
     def __init__(self, pos, img=os.path.join(textures, 'none.png'), is_hard=False):
         super().__init__(Object.all_sprites)
+        if is_hard:
+            self.add(self.hard_blocks)
         self.image = load_image(os.path.join(textures, img))
         self.rect = self.image.get_rect()
         self.rect = self.rect.move(*pos)
@@ -56,7 +59,6 @@ class Level:
         generator = Generator(TILES)
         self.level, starting_point = generator.level, generator.starting_point
         self.width, self.height = generator.width, generator.height
-        print(generator.room_list)
         self.load_map()
 
     def load_map(self):
@@ -65,7 +67,8 @@ class Level:
                 if symbol in TILES.keys():
                     if symbol == ' ':
                         continue
-                    Object((x * TILE_SIZE, y * TILE_SIZE), TILES[symbol])
+
+                    Object((x * TILE_SIZE, y * TILE_SIZE), TILES[symbol], symbol in HARD_TILES)
 
 
 class Game:
