@@ -116,8 +116,10 @@ class Game:
         self.hard_blocks = pg.sprite.Group()
         self.player = pg.sprite.Group()
         self.objects = pg.sprite.Group()
+	self.entities = pg.sprite.Group()
         Object.all_sprites = self.all_sprites
         Object.hard_blocks = self.hard_blocks
+	Entity.entities = self.entities
         # Player.player = self.player
         # когда появится класс предметов добавить в группу
 
