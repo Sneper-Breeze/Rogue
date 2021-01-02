@@ -270,10 +270,12 @@ class Generator:
 
     def spawn_player(self):
         starting_room = random.choice(self.room_list)
-        start_x = starting_room[0] + (starting_room[2] - starting_room[0]) // 2
-        start_y = starting_room[1] + (starting_room[3] - starting_room[1]) // 2
+        start_x = starting_room[0] + starting_room[2] // 2
+        start_y = starting_room[1] + starting_room[3] // 2
         self.starting_point = (start_x, start_y)
         # TODO: Доделать
+        self.level[self.starting_point[1]][self.starting_point[0]] = '@'
+        # Player((self.starting_point[1] * TILE_SIZE, self.starting_point[0] * TILE_SIZE), 100, 100, 1)
 
 if __name__ == '__main__':
     gen = Level()
