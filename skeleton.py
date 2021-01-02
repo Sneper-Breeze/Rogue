@@ -59,12 +59,12 @@ class Object(pg.sprite.Sprite):
 
 
 class Entity(Object):
-	# Не уверен, что нужно делать all sprites для Entity, он же добавляется в all sprites у object
-	# Поэтому пока что закоменчу эту группу
+    # Не уверен, что нужно делать all sprites для Entity, он же добавляется в all sprites у object
+    # Поэтому пока что закоменчу эту группу
     # all_sprites = None
     entities = None
     def __init__(self, pos, hp, max_hp, damage, speed=ST_SPEED,
-    	img=os.path.join(textures, 'none.png')):
+        img=os.path.join(textures, 'none.png')):
         super().__init__(pos, img)
         # super(Object, self).__init__(Entity.entities)
         self.pos = pos
@@ -91,10 +91,10 @@ class Entity(Object):
     def move(self, x, y):
         new_pos = self.pos[0] + x, self.pos[1] + y
         if new_pos[0] != self.pos[0] and new_pos[1] != self.pos[1] or max(abs(new_pos[0] - self.pos[0]),
-        	abs(new_pos[1] - self.pos[1])) > self.speed:
-        	return False
+            abs(new_pos[1] - self.pos[1])) > self.speed:
+            return False
         else:
-        	self.pos = new_pos
+            self.pos = new_pos
         self.rect.topleft = self.pos
 
 
@@ -128,6 +128,23 @@ class Player(Entity):
         self.rect.y += speed_y
         if pg.sprite.spritecollideany(self, Object.hard_blocks):
             self.rect.y -= speed_y
+
+
+class Camera:
+    # зададим начальный сдвиг камеры
+    def __init__(self):
+        self.dx = 0
+        self.dy = 0
+        
+    # сдвинуть объект obj на смещение камеры
+    def apply(self, obj):
+        obj.rect.x += self.dx
+        obj.rect.y += self.dy
+    
+    # позиционировать камеру на объекте target
+    def update(self, target):
+        self.dx = -(target.rect.centerx - WIN_SIZE.centerx)
+        self.dy = -(target.rect.centery - WIN_SIZE.centery)
 
 
 class Level:
@@ -164,11 +181,10 @@ class Game:
         self.player = pg.sprite.Group()
         self.objects = pg.sprite.Group()
         self.entities = pg.sprite.Group()
-        self.player_group = pg.sprite.Group()
         Object.all_sprites = self.all_sprites
         Object.hard_blocks = self.hard_blocks
         Entity.entities = self.entities
-        Player.player_group = self.player_group
+        self.camera = Camera()
         # Player.player = self.player
         # когда появится класс предметов добавить в группу
 
@@ -202,6 +218,10 @@ class Game:
 
     def game_run(self):
         self.all_sprites.empty()
+        self.hard_blocks.empty()
+        self.objects.empty()
+        self.player.empty()
+        self.entities.empty()
         self.game_running = True
         self.level = Level()
         while self.game_running:
@@ -219,24 +239,17 @@ class Game:
                     self.game_running = False
                 if event.key in [K_w, K_s, K_a, K_d]:
                     pass
-            #if event.type == KEYDOWN:
-            #    if event.key == K_UP:
-            #        player.move(0, -player.speed)
-            #    elif event.key == K_DOWN:
-            #        player.move(0, player.speed)
-            #    elif event.key == K_RIGHT:
-            #        player.move(player.speed, 0)
-            #    elif event.key == K_LEFT:
-            #        player.move(-player.speed, 0)
-
 
     def game_update(self):
         player.update()
+        self.camera.update(player) 
+        # обновляем положение всех спрайтов
+        for sprite in self.all_sprites:
+                self.camera.apply(sprite)
 
     def game_render(self):
         self.screen.fill((0, 0, 0))
         self.all_sprites.draw(self.screen)
-        self.player_group.draw(self.screen)
         pg.display.update()
 
 
