@@ -19,6 +19,7 @@ TILES = {
     ':': 'image_path' # Враг 2
 }
 HARD_TILES = ['#']
+
 player = None
 
 
@@ -127,8 +128,6 @@ class Player(Entity):
         self.rect.y += speed_y
         if pg.sprite.spritecollideany(self, Object.hard_blocks):
             self.rect.y -= speed_y
-
-
 
 
 class Level:

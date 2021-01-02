@@ -275,7 +275,6 @@ class Generator:
         self.starting_point = (start_x, start_y)
         # TODO: Доделать
         self.level[self.starting_point[1]][self.starting_point[0]] = '@'
-        # Player((self.starting_point[1] * TILE_SIZE, self.starting_point[0] * TILE_SIZE), 100, 100, 1)
 
 if __name__ == '__main__':
     gen = Level()
