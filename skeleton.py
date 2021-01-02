@@ -2,22 +2,25 @@ import os
 import pygame as pg
 from pygame.locals import *
 from map import Generator
+import random
 
 current_dir = os.path.dirname(__file__)
 textures = os.path.join(current_dir, 'data')
 FPS = 60
 TILE_SIZE = 32
 WIN_SIZE = pg.Rect(0, 0, 1280, 800)
-
+ST_SPEED = 1
 TILES = {
     ' ': 'space.bmp', # Пустота
     '.': 'floor.bmp', # Пол
     '#': 'wall.bmp', # Стена
-    '@': 'player.bmp', # Игрок
+    '@': 'floor.bmp', # Игрок
     '%': 'image_path', # Враг 1
     ':': 'image_path' # Враг 2
 }
 HARD_TILES = ['#']
+
+player = None
 
 
 def load_image(img, colorkey=None):
@@ -38,8 +41,9 @@ def load_image(img, colorkey=None):
     return image
 
 
+
 class Object(pg.sprite.Sprite):
-    all_sprites = None
+    #all_sprites = None
     hard_blocks = None
 
     def __init__(self, pos, img=os.path.join(textures, 'none.png'), is_hard=False):
@@ -84,12 +88,46 @@ class Entity(Object):
 
     # проверку можно ли походить на новые координаты я думаю лучше сделать в
     # игре когда она будет вызывать move, чтобы не передавать сюда level
-    def move(self, new_pos):
-        if new_pos[0] > self.pos[0] and new_pos[1] > self.pos[1] or max(abs(new_pos[0] - self.pos[0]),
+    def move(self, x, y):
+        new_pos = self.pos[0] + x, self.pos[1] + y
+        if new_pos[0] != self.pos[0] and new_pos[1] != self.pos[1] or max(abs(new_pos[0] - self.pos[0]),
         	abs(new_pos[1] - self.pos[1])) > self.speed:
         	return False
         else:
         	self.pos = new_pos
+        self.rect.topleft = self.pos
+
+
+class Player(Entity):
+    player_group = None
+    def __init__(self, pos, hp, max_hp, damage, speed=ST_SPEED, img='player.bmp'):
+        super().__init__(pos, hp, max_hp, damage, speed, img)
+
+    def update(self):
+        keys = pg.key.get_pressed()
+        left = keys[K_a] or keys[K_LEFT]
+        right = keys[K_d] or keys[K_RIGHT]
+        up = keys[K_w] or keys[K_UP]
+        down = keys[K_s] or keys[K_DOWN]
+
+        if left == right:
+            speed_x = 0
+        elif left:
+            speed_x = -self.speed
+        else:
+            speed_x = self.speed
+        self.rect.x += speed_x
+        if pg.sprite.spritecollideany(self, Object.hard_blocks):
+            self.rect.x -= speed_x
+        if up == down:
+            speed_y = 0
+        elif up:
+            speed_y = -self.speed
+        else:
+            speed_y = self.speed
+        self.rect.y += speed_y
+        if pg.sprite.spritecollideany(self, Object.hard_blocks):
+            self.rect.y -= speed_y
 
 
 class Level:
@@ -100,13 +138,17 @@ class Level:
         self.load_map()
 
     def load_map(self):
+        global player
         for y, line in enumerate(self.level):
             for x, symbol in enumerate(line):
                 if symbol in TILES.keys():
+                    if symbol == '@':
+                        player_pos = x * TILE_SIZE, y * TILE_SIZE
                     if symbol == ' ':
                         continue
 
                     Object((x * TILE_SIZE, y * TILE_SIZE), TILES[symbol], symbol in HARD_TILES)
+        player = Player(player_pos, 100, 100, 1)
 
 
 class Game:
@@ -122,9 +164,11 @@ class Game:
         self.player = pg.sprite.Group()
         self.objects = pg.sprite.Group()
         self.entities = pg.sprite.Group()
+        self.player_group = pg.sprite.Group()
         Object.all_sprites = self.all_sprites
         Object.hard_blocks = self.hard_blocks
         Entity.entities = self.entities
+        Player.player_group = self.player_group
         # Player.player = self.player
         # когда появится класс предметов добавить в группу
 
@@ -175,13 +219,24 @@ class Game:
                     self.game_running = False
                 if event.key in [K_w, K_s, K_a, K_d]:
                     pass
+            #if event.type == KEYDOWN:
+            #    if event.key == K_UP:
+            #        player.move(0, -player.speed)
+            #    elif event.key == K_DOWN:
+            #        player.move(0, player.speed)
+            #    elif event.key == K_RIGHT:
+            #        player.move(player.speed, 0)
+            #    elif event.key == K_LEFT:
+            #        player.move(-player.speed, 0)
+
 
     def game_update(self):
-        pass
+        player.update()
 
     def game_render(self):
         self.screen.fill((0, 0, 0))
         self.all_sprites.draw(self.screen)
+        self.player_group.draw(self.screen)
         pg.display.update()
 
 
