@@ -98,6 +98,32 @@ class Entity(Object):
         self.rect.topleft = self.pos
 
 
+class Enemy(Entity):
+    def __init__(self, pos, hp, max_hp, damage, speed=ST_SPEED, img='enemy.bmp'):
+        super().__init__(pos, hp, max_hp, damage, speed, img)
+
+    def update(self, target):
+        if target.rect.centerx == self.rect.centerx:
+            speed_x = 0
+        elif target.rect.centerx < self.rect.centerx:
+            speed_x = -self.speed
+        else:
+            speed_x = self.speed
+        self.rect.x += speed_x
+        if pg.sprite.spritecollideany(self, Object.hard_blocks):
+            self.rect.x -= speed_x
+        if target.rect.centery == self.rect.centery:
+            speed_y = 0
+        elif target.rect.centery < self.rect.centery:
+            speed_y = -self.speed
+        else:
+            speed_y = self.speed
+        self.rect.y += speed_y
+        if pg.sprite.spritecollideany(self, Object.hard_blocks):
+            self.rect.y -= speed_y
+
+
+
 class Player(Entity):
     player_group = None
     def __init__(self, pos, hp, max_hp, damage, speed=ST_SPEED, img='player.bmp'):
@@ -224,6 +250,7 @@ class Game:
         self.entities.empty()
         self.game_running = True
         self.level = Level()
+        self.enemy = Enemy((200, 200), 50, 50, 5)
         while self.game_running:
             self.game_events()
             self.game_update()
@@ -242,6 +269,7 @@ class Game:
 
     def game_update(self):
         player.update()
+        self.enemy.update(player)
         self.camera.update(player) 
         # обновляем положение всех спрайтов
         for sprite in self.all_sprites:
