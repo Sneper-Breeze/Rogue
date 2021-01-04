@@ -8,8 +8,8 @@ current_dir = os.path.dirname(__file__)
 textures = os.path.join(current_dir, 'data')
 FPS = 60
 TILE_SIZE = 32
-WIN_SIZE = pg.Rect(0, 0, 1280, 800)
-ST_SPEED = 1
+WIN_SIZE = pg.Rect(0, 0, 1024, 720)
+ST_SPEED = 250
 TILES = {
     ' ': 'space.bmp', # Пустота
     '.': 'floor.bmp', # Пол
@@ -19,8 +19,6 @@ TILES = {
     ':': 'floor.bmp' # Враг 2
 }
 HARD_TILES = ['#']
-enemieslist = []
-player = None
 
 
 def load_image(img, colorkey=None):
@@ -134,32 +132,96 @@ class Player(Entity):
     player_group = None
     def __init__(self, pos, hp, max_hp, damage, speed=ST_SPEED, img='player.bmp'):
         super().__init__(pos, hp, max_hp, damage, speed, img)
+        self.is_dashing = False
+        self.dash_start_time = None
+        self.dash_directions = None
 
-    def update(self):
+    def update(self, ms):
+        delta_x, delta_y = 0, 0
+        if self.is_dashing and self.dash_directions and self.dash_start_time:
+            if self.dash_directions['right']:
+                delta_x += self.speed * 4 * ms / 1000
+            if self.dash_directions['left']:
+                delta_x -= self.speed * 4 * ms / 1000
+
+            self.rect.x += delta_x
+            object = pg.sprite.spritecollideany(self, Object.hard_blocks)
+            if object:
+                self.end_dash()
+                if delta_x > 0:
+                    self.rect.right = object.rect.left
+                elif delta_x < 0:
+                    self.rect.left = object.rect.right
+                return
+
+            if self.dash_directions['up']:
+                delta_y -= self.speed * 4 * ms / 1000
+            if self.dash_directions['down']:
+                delta_y += self.speed * 4 * ms / 1000
+
+            self.rect.y += delta_y
+            object = pg.sprite.spritecollideany(self, Object.hard_blocks)
+            if object:
+                self.end_dash()
+                if delta_y > 0:
+                    self.rect.bottom = object.rect.top
+                elif delta_y < 0:
+                    self.rect.top = object.rect.bottom
+                return
+
+            if pg.time.get_ticks() - self.dash_start_time > 240:
+                self.end_dash()
+            return
+
         keys = pg.key.get_pressed()
         left = keys[K_a] or keys[K_LEFT]
         right = keys[K_d] or keys[K_RIGHT]
         up = keys[K_w] or keys[K_UP]
         down = keys[K_s] or keys[K_DOWN]
 
-        if left == right:
-            speed_x = 0
-        elif left:
-            speed_x = -self.speed
-        else:
-            speed_x = self.speed
-        self.rect.x += speed_x
-        if pg.sprite.spritecollideany(self, Object.hard_blocks):
-            self.rect.x -= speed_x
-        if up == down:
-            speed_y = 0
-        elif up:
-            speed_y = -self.speed
-        else:
-            speed_y = self.speed
-        self.rect.y += speed_y
-        if pg.sprite.spritecollideany(self, Object.hard_blocks):
-            self.rect.y -= speed_y
+        if left:
+            delta_x -= self.speed * ms / 1000
+        if right:
+            delta_x += self.speed * ms / 1000
+        self.rect.x += delta_x
+        object = pg.sprite.spritecollideany(self, Object.hard_blocks)
+        if object:
+            if delta_x > 0:
+                self.rect.right = object.rect.left
+            elif delta_x < 0:
+                self.rect.left = object.rect.right
+
+        if up:
+            delta_y -= self.speed * ms / 1000
+        if down:
+            delta_y += self.speed * ms / 1000
+        self.rect.y += delta_y
+        object = pg.sprite.spritecollideany(self, Object.hard_blocks)
+        if object:
+            if delta_y > 0:
+                self.rect.bottom = object.rect.top
+            elif delta_y < 0:
+                self.rect.top = object.rect.bottom
+
+    def start_dash(self):
+        self.is_dashing = True
+        self.dash_start_time = pg.time.get_ticks()
+        keys = pg.key.get_pressed()
+        left = keys[K_a] or keys[K_LEFT]
+        right = keys[K_d] or keys[K_RIGHT]
+        up = keys[K_w] or keys[K_UP]
+        down = keys[K_s] or keys[K_DOWN]
+        self.dash_directions = {
+            'left': left,
+            'right': right,
+            'up': up,
+            'down': down
+        }
+
+    def end_dash(self):
+        self.is_dashing = False
+        self.dash_start_time = None
+        self.dash_directions = None
 
 
 class Camera:
@@ -167,12 +229,12 @@ class Camera:
     def __init__(self):
         self.dx = 0
         self.dy = 0
-        
+
     # сдвинуть объект obj на смещение камеры
     def apply(self, obj):
         obj.rect.x += self.dx
         obj.rect.y += self.dy
-    
+
     # позиционировать камеру на объекте target
     def update(self, target):
         self.dx = -(target.rect.centerx - WIN_SIZE.centerx)
@@ -181,15 +243,15 @@ class Camera:
 
 class Level:
     def __init__(self):
-        self.enemies = []
-        self.player = None
+        self.enemies = list()
         generator = Generator(TILES)
-        self.level, starting_point = generator.level, generator.starting_point
+        self.level, self.starting_point = generator.level, generator.starting_point
         self.width, self.height = generator.width, generator.height
         self.load_map()
 
     def load_map(self):
         enemies_chars = []
+
         for y, line in enumerate(self.level):
             for x, symbol in enumerate(line):
                 if symbol in TILES.keys():
@@ -201,22 +263,24 @@ class Level:
                         continue
 
                     Object((x * TILE_SIZE, y * TILE_SIZE), TILES[symbol], symbol in HARD_TILES)
+
         for enemy in enemies_chars:
             self.enemies.append(Enemy(*enemy))
-        self.player = Player(player_pos, 100, 100, 1)
 
 
 class Game:
     def __init__(self):
         pg.init()
-        self.screen = pg.display.set_mode(WIN_SIZE.size)
+        self.screen = pg.display.set_mode(WIN_SIZE.size, vsync=True)
         self.clock = pg.time.Clock()
         self.menu_running = True
         self.game_running = False
         # self.camera = Camera()
         self.all_sprites = pg.sprite.Group()
         self.hard_blocks = pg.sprite.Group()
-        self.player_group = pg.sprite.Group()
+        self.objects = pg.sprite.Group()
+        self.entities = pg.sprite.Group()
+        self.player = None
         self.objects = pg.sprite.Group()
         self.entities = pg.sprite.Group()
         self.enemies = pg.sprite.Group()
@@ -260,11 +324,15 @@ class Game:
         self.all_sprites.empty()
         self.hard_blocks.empty()
         self.objects.empty()
-        self.player_group.empty()
         self.entities.empty()
         self.game_running = True
         self.level = Level()
-        # self.enemy = Enemy((200, 200), 50, 50, 5)
+
+        if self.player is None:
+            self.player = Player(self.level.starting_point, 100, 100, 1)
+        else:
+            self.player.pos = self.level.starting_point
+
         while self.game_running:
             self.game_events()
             self.game_update()
@@ -275,25 +343,39 @@ class Game:
             if event.type == QUIT:
                 self.game_running = False
                 self.menu_running = False
-            if event.type == KEYUP:
+            elif event.type == KEYUP:
                 if event.key == K_ESCAPE:
                     self.game_running = False
-                if event.key in [K_w, K_s, K_a, K_d]:
+                elif event.key in [K_w, K_s, K_a, K_d]:
                     pass
+            elif event.type == MOUSEBUTTONDOWN:
+                if event.button == 3:
+                    if self.player:
+                        self.player.start_dash()
 
     def game_update(self):
-        self.level.player.update()
+
+        ms = self.clock.tick(FPS)
+        self.player.update(ms)
+        self.camera.update(self.player)
         for enemy in self.level.enemies:
-            enemy.update(self.level.player)
-        self.camera.update(self.level.player) 
+            enemy.update(self.player)
+        self.camera.update(self.player) 
+
         # обновляем положение всех спрайтов
         for sprite in self.all_sprites:
-                self.camera.apply(sprite)
+            self.camera.apply(sprite)
 
     def game_render(self):
         self.screen.fill((0, 0, 0))
         self.all_sprites.draw(self.screen)
+        self.display_fps()
         pg.display.update()
+
+    def display_fps(self):
+        font = pg.font.Font(None, 30)
+        text = font.render(str(int(self.clock.get_fps())), 1, pg.Color('white'))
+        self.screen.blit(text, text.get_rect(topleft=(5, 5)))
 
 
 if __name__ == '__main__':

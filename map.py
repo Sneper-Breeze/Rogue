@@ -1,16 +1,20 @@
 import random
 import os
 import pygame as pg
+
+TILE_SIZE = 32
+
 import copy
 ENEMIES = [':', '%']
 
+
 class Generator:
     def __init__(self, tiles):
-        self.width = 32
-        self.height = 20
-        self.max_rooms = 5
-        self.min_room_dimens = 5
-        self.max_room_dimens = 10
+        self.width = 100
+        self.height = 100
+        self.max_rooms = 20
+        self.min_room_dimens = 10
+        self.max_room_dimens = 30
         self.rooms_overlap = False
         self.random_connections = 0
         self.random_spurs = 0
@@ -276,9 +280,7 @@ class Generator:
         starting_room = self.rooms_for_enemies.pop(starting_room)
         start_x = starting_room[0] + starting_room[2] // 2
         start_y = starting_room[1] + starting_room[3] // 2
-        self.starting_point = (start_x, start_y)
-        # TODO: Доделать
-        self.level[self.starting_point[1]][self.starting_point[0]] = '@'
+        self.starting_point = [start_x * TILE_SIZE, start_y * TILE_SIZE]
 
     def spawn_enemies(self):
         for room in self.rooms_for_enemies:
