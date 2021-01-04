@@ -1,7 +1,8 @@
 import random
 import os
 import pygame as pg
-
+import copy
+ENEMIES = [':', '%']
 
 class Generator:
     def __init__(self, tiles):
@@ -21,6 +22,7 @@ class Generator:
         self.gen_level()
         self.gen_tiles_level()
         self.spawn_player()
+        self.spawn_enemies()
 
     def gen_room(self):
         x, y, w, h = 0, 0, 0, 0
@@ -269,12 +271,33 @@ class Generator:
 
 
     def spawn_player(self):
-        starting_room = random.choice(self.room_list)
+        starting_room = random.choice(range(len(self.room_list)))
+        self.rooms_for_enemies = copy.deepcopy(self.room_list)
+        starting_room = self.rooms_for_enemies.pop(starting_room)
         start_x = starting_room[0] + starting_room[2] // 2
         start_y = starting_room[1] + starting_room[3] // 2
         self.starting_point = (start_x, start_y)
         # TODO: Доделать
         self.level[self.starting_point[1]][self.starting_point[0]] = '@'
 
+    def spawn_enemies(self):
+        for room in self.rooms_for_enemies:
+            y = 0
+            x = 0
+            while self.level[y][x] != '.':
+                x1 = room[2] + 2
+                x2 = room[2] - 2 + room[0]
+                try:
+                    x = random.randint(x1, x2)
+                except Exception:
+                    x = random.randint(x2, x1)
+                print(room[3] + 1, room[3] - 1 + room[1])
+                y1 = room[3] + 2
+                y2 = room[3] - 2 + room[1]
+                try:
+                    y = random.randint(y1, y2)
+                except Exception:
+                    y = random.randint(y2, y1)
+            self.level[y][x] = random.choice(ENEMIES)
 if __name__ == '__main__':
     gen = Level()
