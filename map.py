@@ -10,11 +10,11 @@ ENEMIES = [':', '%']
 
 class Generator:
     def __init__(self, tiles):
-        self.width = 100
-        self.height = 100
+        self.width = 70
+        self.height = 70
         self.max_rooms = 20
         self.min_room_dimens = 10
-        self.max_room_dimens = 30
+        self.max_room_dimens = 20
         self.rooms_overlap = False
         self.random_connections = 0
         self.random_spurs = 0

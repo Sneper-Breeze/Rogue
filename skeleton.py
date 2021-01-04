@@ -98,15 +98,11 @@ class Entity(Object):
 
 class Enemy(Entity):
     enemies = None
-    global enemieslist
-    def __init__(self, pos, hp, max_hp, damage, speed=ST_SPEED, img='enemy.bmp'):
+    def __init__(self, pos, hp, max_hp, damage, speed=1, img='enemy.bmp'):
         super().__init__(pos, hp, max_hp, damage, speed, img)
-        enemieslist.append(self)
         self.add(Enemy.enemies)
 
-    def update(self, target):
-        # print('f')
-        #enemieslist.append(self)
+    def update(self, target, ms=None):
         if target.rect.centerx == self.rect.centerx:
             speed_x = 0
         elif target.rect.centerx < self.rect.centerx:
@@ -132,6 +128,8 @@ class Player(Entity):
     player_group = None
     def __init__(self, pos, hp, max_hp, damage, speed=ST_SPEED, img='player.bmp'):
         super().__init__(pos, hp, max_hp, damage, speed, img)
+        self.image = pg.transform.scale(self.image, (20, 20))
+        self.rect = self.image.get_rect().move(self.pos)
         self.is_dashing = False
         self.dash_start_time = None
         self.dash_directions = None
@@ -331,7 +329,7 @@ class Game:
         if self.player is None:
             self.player = Player(self.level.starting_point, 100, 100, 1)
         else:
-            self.player.pos = self.level.starting_point
+            self.player.rect.topleft = self.level.starting_point
 
         while self.game_running:
             self.game_events()
@@ -360,7 +358,6 @@ class Game:
         self.camera.update(self.player)
         for enemy in self.level.enemies:
             enemy.update(self.player)
-        self.camera.update(self.player) 
 
         # обновляем положение всех спрайтов
         for sprite in self.all_sprites:
