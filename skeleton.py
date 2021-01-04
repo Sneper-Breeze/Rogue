@@ -15,8 +15,8 @@ TILES = {
     '.': 'floor.bmp', # Пол
     '#': 'wall.bmp', # Стена
     '@': 'floor.bmp', # Игрок
-    '%': 'image_path', # Враг 1
-    ':': 'image_path' # Враг 2
+    '%': 'floor.bmp', # Враг 1
+    ':': 'floor.bmp' # Враг 2
 }
 HARD_TILES = ['#']
 
@@ -94,6 +94,38 @@ class Entity(Object):
         else:
             self.pos = new_pos
         self.rect.topleft = self.pos
+
+
+class Enemy(Entity):
+    enemies = None
+    global enemieslist
+    def __init__(self, pos, hp, max_hp, damage, speed=ST_SPEED, img='enemy.bmp'):
+        super().__init__(pos, hp, max_hp, damage, speed, img)
+        enemieslist.append(self)
+        self.add(Enemy.enemies)
+
+    def update(self, target):
+        # print('f')
+        #enemieslist.append(self)
+        if target.rect.centerx == self.rect.centerx:
+            speed_x = 0
+        elif target.rect.centerx < self.rect.centerx:
+            speed_x = -self.speed
+        else:
+            speed_x = self.speed
+        self.rect.x += speed_x
+        if pg.sprite.spritecollideany(self, Object.hard_blocks):
+            self.rect.x -= speed_x
+        if target.rect.centery == self.rect.centery:
+            speed_y = 0
+        elif target.rect.centery < self.rect.centery:
+            speed_y = -self.speed
+        else:
+            speed_y = self.speed
+        self.rect.y += speed_y
+        if pg.sprite.spritecollideany(self, Object.hard_blocks):
+            self.rect.y -= speed_y
+
 
 
 class Player(Entity):
@@ -211,21 +243,29 @@ class Camera:
 
 class Level:
     def __init__(self):
+        self.enemies = list()
         generator = Generator(TILES)
         self.level, self.starting_point = generator.level, generator.starting_point
         self.width, self.height = generator.width, generator.height
         self.load_map()
 
     def load_map(self):
+        enemies_chars = []
+
         for y, line in enumerate(self.level):
             for x, symbol in enumerate(line):
                 if symbol in TILES.keys():
                     if symbol == '@':
                         player_pos = x * TILE_SIZE, y * TILE_SIZE
+                    if symbol == ':' or symbol == '%':
+                        enemies_chars.append(((x * TILE_SIZE, y * TILE_SIZE), 100, 100, 1))
                     if symbol == ' ':
                         continue
 
                     Object((x * TILE_SIZE, y * TILE_SIZE), TILES[symbol], symbol in HARD_TILES)
+
+        for enemy in enemies_chars:
+            self.enemies.append(Enemy(*enemy))
 
 
 class Game:
@@ -241,9 +281,13 @@ class Game:
         self.objects = pg.sprite.Group()
         self.entities = pg.sprite.Group()
         self.player = None
+        self.objects = pg.sprite.Group()
+        self.entities = pg.sprite.Group()
+        self.enemies = pg.sprite.Group()
         Object.all_sprites = self.all_sprites
         Object.hard_blocks = self.hard_blocks
         Entity.entities = self.entities
+        Enemy.enemies = self.enemies
         self.camera = Camera()
         # Player.player = self.player
         # когда появится класс предметов добавить в группу
@@ -310,9 +354,14 @@ class Game:
                         self.player.start_dash()
 
     def game_update(self):
+
         ms = self.clock.tick(FPS)
         self.player.update(ms)
         self.camera.update(self.player)
+        for enemy in self.level.enemies:
+            enemy.update(self.player)
+        self.camera.update(self.player) 
+
         # обновляем положение всех спрайтов
         for sprite in self.all_sprites:
             self.camera.apply(sprite)
