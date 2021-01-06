@@ -121,6 +121,8 @@ class Enemy(Entity):
         self.rect.y += speed_y
         if pg.sprite.spritecollideany(self, Object.hard_blocks):
             self.rect.y -= speed_y
+        if self.rect.colliderect(target):
+            self.hit(target)
 
 
 
@@ -329,12 +331,14 @@ class Game:
         if self.player is None:
             self.player = Player(self.level.starting_point, 100, 100, 1)
         else:
-            self.player.rect.topleft = self.level.starting_point
+            self.player.rect.center = self.level.starting_point
 
         while self.game_running:
             self.game_events()
             self.game_update()
             self.game_render()
+        if not self.player.alive():
+            self.player = None
 
     def game_events(self):
         for event in pg.event.get():
@@ -344,6 +348,7 @@ class Game:
             elif event.type == KEYUP:
                 if event.key == K_ESCAPE:
                     self.game_running = False
+                    self.player.death()
                 elif event.key in [K_w, K_s, K_a, K_d]:
                     pass
             elif event.type == MOUSEBUTTONDOWN:
@@ -352,9 +357,10 @@ class Game:
                         self.player.start_dash()
 
     def game_update(self):
-
         ms = self.clock.tick(FPS)
         self.player.update(ms)
+        if not self.player.alive():
+            self.game_running = False
         self.camera.update(self.player)
         for enemy in self.level.enemies:
             enemy.update(self.player)
