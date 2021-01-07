@@ -10,14 +10,24 @@ ENEMIES = [':', '%']
 
 class Generator:
     def __init__(self, tiles):
-        self.width = 70
-        self.height = 70
-        self.max_rooms = 20
-        self.min_room_dimens = 10
-        self.max_room_dimens = 20
+        # self.width = 70
+        # self.height = 70
+        # self.max_rooms = 15
+        # self.min_room_dimens = 10
+        # self.max_room_dimens = 15
+        # self.rooms_overlap = False
+        # self.random_connections = 0
+        # self.random_spurs = 0
+        # self.enemies_per_room = 3
+        self.width = 50
+        self.height = 50
+        self.max_rooms = 10
+        self.min_room_dimens = 5
+        self.max_room_dimens = 10
         self.rooms_overlap = False
         self.random_connections = 0
         self.random_spurs = 0
+        # self.enemies_per_room = 3
         self.tiles = tiles
         self.level = list()
         self.room_list = list()
@@ -287,19 +297,16 @@ class Generator:
             y = 0
             x = 0
             while self.level[y][x] != '.':
-                x1 = room[2] + 2
-                x2 = room[2] - 2 + room[0]
+                x1 = room[0] + 2
+                x2 = room[0] - 2 + room[2]
                 try:
                     x = random.randint(x1, x2)
                 except Exception:
                     x = random.randint(x2, x1)
-                print(room[3] + 1, room[3] - 1 + room[1])
-                y1 = room[3] + 2
-                y2 = room[3] - 2 + room[1]
+                y1 = room[1] + 2
+                y2 = room[1] - 2 + room[3]
                 try:
                     y = random.randint(y1, y2)
                 except Exception:
                     y = random.randint(y2, y1)
             self.level[y][x] = random.choice(ENEMIES)
-if __name__ == '__main__':
-    gen = Level()

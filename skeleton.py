@@ -98,32 +98,45 @@ class Entity(Object):
 
 class Enemy(Entity):
     enemies = None
-    def __init__(self, pos, hp, max_hp, damage, speed=1, img='enemy.bmp'):
+    def __init__(self, pos, hp, max_hp, damage, speed=ST_SPEED * 0.75, img='enemy.bmp'):
         super().__init__(pos, hp, max_hp, damage, speed, img)
         self.add(Enemy.enemies)
 
-    def update(self, target, ms=None):
+    def update(self, target, ms):
+        delta_x = delta_y = 0
+
         if target.rect.centerx == self.rect.centerx:
-            speed_x = 0
+            delta_x = 0
         elif target.rect.centerx < self.rect.centerx:
-            speed_x = -self.speed
+            delta_x = -self.speed * ms / 1000
         else:
-            speed_x = self.speed
-        self.rect.x += speed_x
-        if pg.sprite.spritecollideany(self, Object.hard_blocks):
-            self.rect.x -= speed_x
+            delta_x = self.speed * ms / 1000
+        self.rect.x += delta_x
+
+        object = pg.sprite.spritecollideany(self, Object.hard_blocks)
+        if object:
+            if delta_x > 0:
+                self.rect.right = object.rect.left
+            elif delta_x < 0:
+                self.rect.left = object.rect.right
+
         if target.rect.centery == self.rect.centery:
-            speed_y = 0
+            delta_y = 0
         elif target.rect.centery < self.rect.centery:
-            speed_y = -self.speed
+            delta_y = -self.speed * ms / 1000
         else:
-            speed_y = self.speed
-        self.rect.y += speed_y
-        if pg.sprite.spritecollideany(self, Object.hard_blocks):
-            self.rect.y -= speed_y
+            delta_y = self.speed * ms / 1000
+        self.rect.y += delta_y
+
+        object = pg.sprite.spritecollideany(self, Object.hard_blocks)
+        if object:
+            if delta_y > 0:
+                self.rect.bottom = object.rect.top
+            elif delta_y < 0:
+                self.rect.top = object.rect.bottom
+        
         if self.rect.colliderect(target):
             self.hit(target)
-
 
 
 class Player(Entity):
@@ -331,14 +344,12 @@ class Game:
         if self.player is None:
             self.player = Player(self.level.starting_point, 100, 100, 1)
         else:
-            self.player.rect.center = self.level.starting_point
+            self.player.rect.topleft = self.level.starting_point
 
         while self.game_running:
             self.game_events()
             self.game_update()
             self.game_render()
-        if not self.player.alive():
-            self.player = None
 
     def game_events(self):
         for event in pg.event.get():
@@ -348,7 +359,6 @@ class Game:
             elif event.type == KEYUP:
                 if event.key == K_ESCAPE:
                     self.game_running = False
-                    self.player.death()
                 elif event.key in [K_w, K_s, K_a, K_d]:
                     pass
             elif event.type == MOUSEBUTTONDOWN:
@@ -357,13 +367,12 @@ class Game:
                         self.player.start_dash()
 
     def game_update(self):
+
         ms = self.clock.tick(FPS)
         self.player.update(ms)
-        if not self.player.alive():
-            self.game_running = False
         self.camera.update(self.player)
         for enemy in self.level.enemies:
-            enemy.update(self.player)
+            enemy.update(self.player, ms)
 
         # обновляем положение всех спрайтов
         for sprite in self.all_sprites:
