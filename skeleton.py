@@ -8,8 +8,8 @@ current_dir = os.path.dirname(__file__)
 textures = os.path.join(current_dir, 'data')
 FPS = 60
 TILE_SIZE = 32
-WIN_SIZE = pg.Rect(0, 0, 1280, 800)
-ST_SPEED = 1
+WIN_SIZE = pg.Rect(0, 0, 1024, 720)
+ST_SPEED = 250
 TILES = {
     ' ': 'space.bmp', # Пустота
     '.': 'floor.bmp', # Пол
@@ -19,8 +19,6 @@ TILES = {
     ':': 'floor.bmp' # Враг 2
 }
 HARD_TILES = ['#']
-enemieslist = []
-player = None
 
 
 def load_image(img, colorkey=None):
@@ -100,15 +98,11 @@ class Entity(Object):
 
 class Enemy(Entity):
     enemies = None
-    global enemieslist
-    def __init__(self, pos, hp, max_hp, damage, speed=ST_SPEED, img='enemy.bmp'):
+    def __init__(self, pos, hp, max_hp, damage, speed=1, img='enemy.bmp'):
         super().__init__(pos, hp, max_hp, damage, speed, img)
-        enemieslist.append(self)
         self.add(Enemy.enemies)
 
-    def update(self, target):
-        # print('f')
-        #enemieslist.append(self)
+    def update(self, target, ms):
         if target.rect.centerx == self.rect.centerx:
             speed_x = 0
         elif target.rect.centerx < self.rect.centerx:
@@ -127,39 +121,151 @@ class Enemy(Entity):
         self.rect.y += speed_y
         if pg.sprite.spritecollideany(self, Object.hard_blocks):
             self.rect.y -= speed_y
+        if self.rect.colliderect(target):
+            self.hit(target)
 
+
+class Turret(Enemy):
+    def __init__(self, pos, hp, max_hp, damage, speed=1, img='turret.png'):
+        super().__init__(pos, hp, max_hp, damage, speed, img)
+        self.pos = pos
+        self.seconds = 0
+        self.bullets = []
+
+    def update(self, target, ms):
+        for bullet in self.bullets:
+            bullet.update(target, ms)
+        self.seconds += ms
+        dist_x = abs(target.rect.centerx - self.rect.centerx)
+        dist_y = abs(target.rect.centery - self.rect.centery)
+        if dist_x <= 500 and dist_y <= 500:
+            if self.seconds >= 1000:
+                self.seconds = 0
+                # print(self.pos, 't')
+                self.bullets.append(Bullet(self.rect.center, target, self.damage))
+
+
+
+class Bullet(Object):
+    def __init__(self, pos, target, damage, speed=1, img='Bullet.bmp'):
+        # self.add(Enemy.enemies)
+        # print(pos)
+        super().__init__(pos, img)
+        self.seconds = 0
+        self.target = target
+        self.damage = damage
+        self.speed_x = (target.rect.centerx - self.rect.centerx) * speed
+        self.speed_y = (target.rect.centery - self.rect.centery) * speed
+
+    def update(self, target, ms):
+        self.seconds += ms
+        self.rect.centerx += self.speed_x * ms / 1000
+        self.rect.centery += self.speed_y * ms / 1000
+        if self.rect.colliderect(target):
+            target.get_hit(self.damage)
+            self.kill()
+        if self.seconds >= 9000:
+            self.kill()
+        if pg.sprite.spritecollideany(self, Object.hard_blocks):
+            self.kill()
 
 
 class Player(Entity):
     player_group = None
     def __init__(self, pos, hp, max_hp, damage, speed=ST_SPEED, img='player.bmp'):
         super().__init__(pos, hp, max_hp, damage, speed, img)
+        self.image = pg.transform.scale(self.image, (20, 20))
+        self.rect = self.image.get_rect().move(self.pos)
+        self.is_dashing = False
+        self.dash_start_time = None
+        self.dash_directions = None
 
-    def update(self):
+    def update(self, ms):
+        delta_x, delta_y = 0, 0
+        if self.is_dashing and self.dash_directions and self.dash_start_time:
+            if self.dash_directions['right']:
+                delta_x += self.speed * 4 * ms / 1000
+            if self.dash_directions['left']:
+                delta_x -= self.speed * 4 * ms / 1000
+
+            self.rect.x += delta_x
+            object = pg.sprite.spritecollideany(self, Object.hard_blocks)
+            if object:
+                self.end_dash()
+                if delta_x > 0:
+                    self.rect.right = object.rect.left
+                elif delta_x < 0:
+                    self.rect.left = object.rect.right
+                return
+
+            if self.dash_directions['up']:
+                delta_y -= self.speed * 4 * ms / 1000
+            if self.dash_directions['down']:
+                delta_y += self.speed * 4 * ms / 1000
+
+            self.rect.y += delta_y
+            object = pg.sprite.spritecollideany(self, Object.hard_blocks)
+            if object:
+                self.end_dash()
+                if delta_y > 0:
+                    self.rect.bottom = object.rect.top
+                elif delta_y < 0:
+                    self.rect.top = object.rect.bottom
+                return
+
+            if pg.time.get_ticks() - self.dash_start_time > 240:
+                self.end_dash()
+            return
+
         keys = pg.key.get_pressed()
         left = keys[K_a] or keys[K_LEFT]
         right = keys[K_d] or keys[K_RIGHT]
         up = keys[K_w] or keys[K_UP]
         down = keys[K_s] or keys[K_DOWN]
 
-        if left == right:
-            speed_x = 0
-        elif left:
-            speed_x = -self.speed
-        else:
-            speed_x = self.speed
-        self.rect.x += speed_x
-        if pg.sprite.spritecollideany(self, Object.hard_blocks):
-            self.rect.x -= speed_x
-        if up == down:
-            speed_y = 0
-        elif up:
-            speed_y = -self.speed
-        else:
-            speed_y = self.speed
-        self.rect.y += speed_y
-        if pg.sprite.spritecollideany(self, Object.hard_blocks):
-            self.rect.y -= speed_y
+        if left:
+            delta_x -= self.speed * ms / 1000
+        if right:
+            delta_x += self.speed * ms / 1000
+        self.rect.x += delta_x
+        object = pg.sprite.spritecollideany(self, Object.hard_blocks)
+        if object:
+            if delta_x > 0:
+                self.rect.right = object.rect.left
+            elif delta_x < 0:
+                self.rect.left = object.rect.right
+
+        if up:
+            delta_y -= self.speed * ms / 1000
+        if down:
+            delta_y += self.speed * ms / 1000
+        self.rect.y += delta_y
+        object = pg.sprite.spritecollideany(self, Object.hard_blocks)
+        if object:
+            if delta_y > 0:
+                self.rect.bottom = object.rect.top
+            elif delta_y < 0:
+                self.rect.top = object.rect.bottom
+
+    def start_dash(self):
+        self.is_dashing = True
+        self.dash_start_time = pg.time.get_ticks()
+        keys = pg.key.get_pressed()
+        left = keys[K_a] or keys[K_LEFT]
+        right = keys[K_d] or keys[K_RIGHT]
+        up = keys[K_w] or keys[K_UP]
+        down = keys[K_s] or keys[K_DOWN]
+        self.dash_directions = {
+            'left': left,
+            'right': right,
+            'up': up,
+            'down': down
+        }
+
+    def end_dash(self):
+        self.is_dashing = False
+        self.dash_start_time = None
+        self.dash_directions = None
 
 
 class Camera:
@@ -167,12 +273,12 @@ class Camera:
     def __init__(self):
         self.dx = 0
         self.dy = 0
-        
+
     # сдвинуть объект obj на смещение камеры
     def apply(self, obj):
         obj.rect.x += self.dx
         obj.rect.y += self.dy
-    
+
     # позиционировать камеру на объекте target
     def update(self, target):
         self.dx = -(target.rect.centerx - WIN_SIZE.centerx)
@@ -181,42 +287,49 @@ class Camera:
 
 class Level:
     def __init__(self):
-        self.enemies = []
-        self.player = None
+        self.enemies = list()
         generator = Generator(TILES)
-        self.level, starting_point = generator.level, generator.starting_point
+        self.level, self.starting_point = generator.level, generator.starting_point
         self.width, self.height = generator.width, generator.height
         self.load_map()
 
     def load_map(self):
         enemies_chars = []
+
         for y, line in enumerate(self.level):
             for x, symbol in enumerate(line):
                 if symbol in TILES.keys():
                     if symbol == '@':
                         player_pos = x * TILE_SIZE, y * TILE_SIZE
-                    if symbol == ':' or symbol == '%':
-                        enemies_chars.append(((x * TILE_SIZE, y * TILE_SIZE), 100, 100, 1))
+                    if symbol == ':':
+                        enemies_chars.append(('e', (x * TILE_SIZE, y * TILE_SIZE), 100, 100, 1))
+                    if symbol == '%':
+                        enemies_chars.append(('t', (x * TILE_SIZE, y * TILE_SIZE), 100, 100, 10))
                     if symbol == ' ':
                         continue
 
                     Object((x * TILE_SIZE, y * TILE_SIZE), TILES[symbol], symbol in HARD_TILES)
+
         for enemy in enemies_chars:
-            self.enemies.append(Enemy(*enemy))
-        self.player = Player(player_pos, 100, 100, 1)
+            if enemy[0] == 'e':
+                self.enemies.append(Enemy(*enemy[1:]))
+            else:
+                self.enemies.append(Turret(*enemy[1:]))
 
 
 class Game:
     def __init__(self):
         pg.init()
-        self.screen = pg.display.set_mode(WIN_SIZE.size)
+        self.screen = pg.display.set_mode(WIN_SIZE.size, vsync=True)
         self.clock = pg.time.Clock()
         self.menu_running = True
         self.game_running = False
         # self.camera = Camera()
         self.all_sprites = pg.sprite.Group()
         self.hard_blocks = pg.sprite.Group()
-        self.player_group = pg.sprite.Group()
+        self.objects = pg.sprite.Group()
+        self.entities = pg.sprite.Group()
+        self.player = None
         self.objects = pg.sprite.Group()
         self.entities = pg.sprite.Group()
         self.enemies = pg.sprite.Group()
@@ -260,40 +373,61 @@ class Game:
         self.all_sprites.empty()
         self.hard_blocks.empty()
         self.objects.empty()
-        self.player_group.empty()
         self.entities.empty()
         self.game_running = True
         self.level = Level()
-        # self.enemy = Enemy((200, 200), 50, 50, 5)
+
+        if self.player is None:
+            self.player = Player(self.level.starting_point, 100, 100, 1)
+        else:
+            self.player.rect.center = self.level.starting_point
+
         while self.game_running:
             self.game_events()
             self.game_update()
             self.game_render()
+        if not self.player.alive():
+            self.player = None
 
     def game_events(self):
         for event in pg.event.get():
             if event.type == QUIT:
                 self.game_running = False
                 self.menu_running = False
-            if event.type == KEYUP:
+            elif event.type == KEYUP:
                 if event.key == K_ESCAPE:
                     self.game_running = False
-                if event.key in [K_w, K_s, K_a, K_d]:
+                    self.player.death()
+                elif event.key in [K_w, K_s, K_a, K_d]:
                     pass
+            elif event.type == MOUSEBUTTONDOWN:
+                if event.button == 3:
+                    if self.player:
+                        self.player.start_dash()
 
     def game_update(self):
-        self.level.player.update()
+        ms = self.clock.tick(FPS)
+        self.player.update(ms)
+        if not self.player.alive():
+            self.game_running = False
+        self.camera.update(self.player)
         for enemy in self.level.enemies:
-            enemy.update(self.level.player)
-        self.camera.update(self.level.player) 
+            enemy.update(self.player, ms)
+
         # обновляем положение всех спрайтов
         for sprite in self.all_sprites:
-                self.camera.apply(sprite)
+            self.camera.apply(sprite)
 
     def game_render(self):
         self.screen.fill((0, 0, 0))
         self.all_sprites.draw(self.screen)
+        self.display_fps()
         pg.display.update()
+
+    def display_fps(self):
+        font = pg.font.Font(None, 30)
+        text = font.render(str(int(self.clock.get_fps())), 1, pg.Color('white'))
+        self.screen.blit(text, text.get_rect(topleft=(5, 5)))
 
 
 if __name__ == '__main__':
