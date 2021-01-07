@@ -134,6 +134,9 @@ class Enemy(Entity):
                 self.rect.bottom = object.rect.top
             elif delta_y < 0:
                 self.rect.top = object.rect.bottom
+        
+        if self.rect.colliderect(target):
+            self.hit(target)
 
 
 class Player(Entity):
