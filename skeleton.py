@@ -134,7 +134,7 @@ class Enemy(Entity):
                 self.rect.bottom = object.rect.top
             elif delta_y < 0:
                 self.rect.top = object.rect.bottom
-        
+
         if self.rect.colliderect(target):
             self.hit(target)
 
@@ -347,9 +347,11 @@ class Game:
             self.player.rect.topleft = self.level.starting_point
 
         while self.game_running:
+            self.game_render()
             self.game_events()
             self.game_update()
-            self.game_render()
+        if not self.player.alive():
+            self.player = None
 
     def game_events(self):
         for event in pg.event.get():
@@ -359,6 +361,7 @@ class Game:
             elif event.type == KEYUP:
                 if event.key == K_ESCAPE:
                     self.game_running = False
+                    self.player.death()
                 elif event.key in [K_w, K_s, K_a, K_d]:
                     pass
             elif event.type == MOUSEBUTTONDOWN:
@@ -370,6 +373,8 @@ class Game:
 
         ms = self.clock.tick(FPS)
         self.player.update(ms)
+        if not self.player.alive():
+            self.game_running = False
         self.camera.update(self.player)
         for enemy in self.level.enemies:
             enemy.update(self.player, ms)
