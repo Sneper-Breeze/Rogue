@@ -139,6 +139,50 @@ class Enemy(Entity):
             self.hit(target)
 
 
+class Turret(Enemy):
+    def __init__(self, pos, hp, max_hp, damage, speed=1, img='turret.png'):
+        super().__init__(pos, hp, max_hp, damage, speed, img)
+        self.pos = pos
+        self.seconds = 0
+        self.bullets = []
+
+    def update(self, target, ms):
+        for bullet in self.bullets:
+            bullet.update(target, ms)
+        self.seconds += ms
+        dist_x = abs(target.rect.centerx - self.rect.centerx)
+        dist_y = abs(target.rect.centery - self.rect.centery)
+        if dist_x <= 500 and dist_y <= 500:
+            if self.seconds >= 1000:
+                self.seconds = 0
+                # print(self.pos, 't')
+                self.bullets.append(Bullet(self.rect.center, target, self.damage))
+
+
+class Bullet(Object):
+    def __init__(self, pos, target, damage, speed=1, img='Bullet.bmp'):
+        # self.add(Enemy.enemies)
+        # print(pos)
+        super().__init__(pos, img)
+        self.seconds = 0
+        self.target = target
+        self.damage = damage
+        self.speed_x = (target.rect.centerx - self.rect.centerx) * speed
+        self.speed_y = (target.rect.centery - self.rect.centery) * speed
+
+    def update(self, target, ms):
+        self.seconds += ms
+        self.rect.centerx += self.speed_x * ms / 1000
+        self.rect.centery += self.speed_y * ms / 1000
+        if self.rect.colliderect(target):
+            target.get_hit(self.damage)
+            self.kill()
+        if self.seconds >= 9000:
+            self.kill()
+        if pg.sprite.spritecollideany(self, Object.hard_blocks):
+            self.kill()
+
+
 class Player(Entity):
     player_group = None
     def __init__(self, pos, hp, max_hp, damage, speed=ST_SPEED, img='player.bmp'):
@@ -270,15 +314,20 @@ class Level:
                 if symbol in TILES.keys():
                     if symbol == '@':
                         player_pos = x * TILE_SIZE, y * TILE_SIZE
-                    if symbol == ':' or symbol == '%':
-                        enemies_chars.append(((x * TILE_SIZE, y * TILE_SIZE), 100, 100, 1))
+                    if symbol == ':':
+                        enemies_chars.append(('e', (x * TILE_SIZE, y * TILE_SIZE), 100, 100, 1))
+                    if symbol == '%':
+                        enemies_chars.append(('t', (x * TILE_SIZE, y * TILE_SIZE), 100, 100, 10))
                     if symbol == ' ':
                         continue
 
                     Object((x * TILE_SIZE, y * TILE_SIZE), TILES[symbol], symbol in HARD_TILES)
 
         for enemy in enemies_chars:
-            self.enemies.append(Enemy(*enemy))
+            if enemy[0] == 'e':
+                self.enemies.append(Enemy(*enemy[1:]))
+            else:
+                self.enemies.append(Turret(*enemy[1:]))
 
 
 class Game:
@@ -350,6 +399,7 @@ class Game:
             self.game_render()
             self.game_events()
             self.game_update()
+
         if not self.player.alive():
             self.player = None
 
@@ -370,7 +420,6 @@ class Game:
                         self.player.start_dash()
 
     def game_update(self):
-
         ms = self.clock.tick(FPS)
         self.player.update(ms)
         if not self.player.alive():

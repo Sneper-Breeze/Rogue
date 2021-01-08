@@ -303,8 +303,10 @@ class Generator:
                     x = random.randint(x1, x2)
                 except Exception:
                     x = random.randint(x2, x1)
+
                 y1 = room[1] + 2
                 y2 = room[1] - 2 + room[3]
+
                 try:
                     y = random.randint(y1, y2)
                 except Exception:
