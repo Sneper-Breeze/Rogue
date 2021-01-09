@@ -76,7 +76,7 @@ class Entity(Object):
 
     def get_hit(self, damage):
         self.hp -= damage
-        if self.hp == 0:
+        if self.hp <= 0:
             self.death()
 
     def death(self):
@@ -137,7 +137,10 @@ class Enemy(Entity):
                 self.rect.top = object.rect.bottom
 
         if self.rect.colliderect(target):
-            self.hit(target)
+            if target.is_dashing:
+                self.get_hit(target.damage)
+            else:
+                self.hit(target)
 
 
 class Turret(Enemy):
@@ -145,11 +148,8 @@ class Turret(Enemy):
         super().__init__(pos, hp, max_hp, damage, speed, img)
         self.pos = pos
         self.seconds = 0
-        self.bullets = []
 
     def update(self, target, ms):
-        for bullet in self.bullets:
-            bullet.update(target, ms)
         self.seconds += ms
         dist_x = abs(target.rect.centerx - self.rect.centerx)
         dist_y = abs(target.rect.centery - self.rect.centery)
@@ -157,14 +157,24 @@ class Turret(Enemy):
             if self.seconds >= 1000:
                 self.seconds = 0
                 # print(self.pos, 't')
-                self.bullets.append(Bullet(self.rect.center, target, self.damage))
+                Bullet(self.rect.center, target, self.damage)
+        if self.rect.colliderect(target):
+            if target.is_dashing:
+                self.death()
+            else:
+                self.hit(target)
+
+    def death(self):
+        self.kill()
 
 
 class Bullet(Object):
+    bullets = None
     def __init__(self, pos, target, damage, speed=400, img='Bullet.bmp'):
         # self.add(Enemy.enemies)
         # print(pos)
         super().__init__(pos, img)
+        self.add(Bullet.bullets)
         self.seconds = 0
         self.target = target
         self.damage = damage
@@ -199,6 +209,7 @@ class Player(Entity):
         self.dash_directions = None
 
     def update(self, ms):
+        # print(self.hp)
         delta_x, delta_y = 0, 0
         if self.is_dashing and self.dash_directions and self.dash_start_time:
             if self.dash_directions['right']:
@@ -285,6 +296,12 @@ class Player(Entity):
         self.dash_start_time = None
         self.dash_directions = None
 
+    def get_hit(self, damage):
+        if self.is_dashing:
+            pass
+        else:
+            super().get_hit(damage)
+
 
 class Camera:
     # зададим начальный сдвиг камеры
@@ -330,9 +347,9 @@ class Level:
 
         for enemy in enemies_chars:
             if enemy[0] == 'e':
-                self.enemies.append(Enemy(*enemy[1:]))
+                Enemy(*enemy[1:])
             else:
-                self.enemies.append(Turret(*enemy[1:]))
+                Turret(*enemy[1:])
 
 
 class Game:
@@ -349,8 +366,10 @@ class Game:
         self.entities = pg.sprite.Group()
         self.player = None
         self.objects = pg.sprite.Group()
+        self.bullets = pg.sprite.Group()
         self.entities = pg.sprite.Group()
         self.enemies = pg.sprite.Group()
+        Bullet.bullets = self.bullets
         Object.all_sprites = self.all_sprites
         Object.hard_blocks = self.hard_blocks
         Entity.entities = self.entities
@@ -396,7 +415,7 @@ class Game:
         self.level = Level()
 
         if self.player is None:
-            self.player = Player(self.level.starting_point, 100, 100, 1)
+            self.player = Player(self.level.starting_point, 100, 100, 20)
         else:
             self.player.rect.topleft = self.level.starting_point
 
@@ -427,11 +446,16 @@ class Game:
     def game_update(self):
         ms = self.clock.tick(FPS)
         self.player.update(ms)
+        for bullet in Bullet.bullets:
+            bullet.update(self.player, ms=ms)
         if not self.player.alive():
             self.game_running = False
         self.camera.update(self.player)
-        for enemy in self.level.enemies:
-            enemy.update(self.player, ms)
+        for enemy in Enemy.enemies:
+            enemy.update(self.player, ms=ms)
+        # for enemy in self.level.enemies:
+        #     if enemy.update(self.player, ms):
+        #         self.level.enemies.remove(enemy)
 
         # обновляем положение всех спрайтов
         for sprite in self.all_sprites:
