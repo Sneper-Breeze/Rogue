@@ -1,8 +1,9 @@
 import os
+import math
+import random
 import pygame as pg
 from pygame.locals import *
 from map import Generator
-import random
 
 current_dir = os.path.dirname(__file__)
 textures = os.path.join(current_dir, 'data')
@@ -160,20 +161,24 @@ class Turret(Enemy):
 
 
 class Bullet(Object):
-    def __init__(self, pos, target, damage, speed=1, img='Bullet.bmp'):
+    def __init__(self, pos, target, damage, speed=400, img='Bullet.bmp'):
         # self.add(Enemy.enemies)
         # print(pos)
         super().__init__(pos, img)
         self.seconds = 0
         self.target = target
         self.damage = damage
-        self.speed_x = (target.rect.centerx - self.rect.centerx) * speed
-        self.speed_y = (target.rect.centery - self.rect.centery) * speed
+        self.speed = speed
+        delta_x = pos[0] - target.rect.centerx
+        delta_y = pos[1] - target.rect.centery
+        rads = math.atan2(delta_y, delta_x)
+        rads %= 2 * math.pi
+        self.angle = rads # Угол хранится в радианах, чтобы не переводить его каждый раз
 
     def update(self, target, ms):
         self.seconds += ms
-        self.rect.centerx += self.speed_x * ms / 1000
-        self.rect.centery += self.speed_y * ms / 1000
+        self.rect.centerx = self.rect.centerx - self.speed * math.cos(self.angle) * ms / 1000
+        self.rect.centery = self.rect.centery - self.speed * math.sin(self.angle) * ms / 1000
         if self.rect.colliderect(target):
             target.get_hit(self.damage)
             self.kill()
