@@ -2,7 +2,6 @@ import os
 import math
 import random
 import pygame as pg
-from pygame.locals import *
 from map import Generator
 
 current_dir = os.path.dirname(__file__)
@@ -52,8 +51,11 @@ class Object(pg.sprite.Sprite):
         self.image = load_image(os.path.join(textures, img))
         self.rect = self.image.get_rect()
         self.rect = self.rect.move(*pos)
+        self.images = None
+        self.current_animation = None
+        self.time_to_change = 1
 
-    def update(self, *args):
+    def update(self, target, ms):
         pass
 
 
@@ -106,41 +108,37 @@ class Enemy(Entity):
     def update(self, target, ms):
         delta_x = delta_y = 0
 
-        if target.rect.centerx == self.rect.centerx:
-            delta_x = 0
-        elif target.rect.centerx < self.rect.centerx:
-            delta_x = -self.speed * ms / 1000
-        else:
-            delta_x = self.speed * ms / 1000
+        if target.rect.centerx < self.rect.centerx:
+            delta_x -= self.speed * ms / 1000
+        elif target.rect.centerx > self.rect.centerx:
+            delta_x += self.speed * ms / 1000
         self.rect.x += delta_x
 
-        object = pg.sprite.spritecollideany(self, Object.hard_blocks)
-        if object:
+        sprite = pg.sprite.spritecollideany(self, Object.hard_blocks)
+        if sprite:
             if delta_x > 0:
-                self.rect.right = object.rect.left
+                self.rect.right = sprite.rect.left
             elif delta_x < 0:
-                self.rect.left = object.rect.right
+                self.rect.left = sprite.rect.right
 
-        if target.rect.centery == self.rect.centery:
-            delta_y = 0
-        elif target.rect.centery < self.rect.centery:
-            delta_y = -self.speed * ms / 1000
-        else:
-            delta_y = self.speed * ms / 1000
+        if target.rect.centery < self.rect.centery:
+            delta_y -= self.speed * ms / 1000
+        elif target.rect.centery > self.rect.centery:
+            delta_y += self.speed * ms / 1000
         self.rect.y += delta_y
 
-        object = pg.sprite.spritecollideany(self, Object.hard_blocks)
-        if object:
+        sprite = pg.sprite.spritecollideany(self, Object.hard_blocks)
+        if sprite:
             if delta_y > 0:
-                self.rect.bottom = object.rect.top
+                self.rect.bottom = sprite.rect.top
             elif delta_y < 0:
-                self.rect.top = object.rect.bottom
+                self.rect.top = sprite.rect.bottom
 
         if self.rect.colliderect(target):
             if target.is_dashing:
-                self.get_hit(target.damage)
+                self.kill()
             else:
-                self.hit(target)
+                target.kill()
 
 
 class Turret(Enemy):
@@ -162,7 +160,7 @@ class Turret(Enemy):
             if target.is_dashing:
                 self.death()
             else:
-                self.hit(target)
+                target.kill()
 
     def death(self):
         self.kill()
@@ -190,7 +188,7 @@ class Bullet(Object):
         self.rect.centerx = self.rect.centerx - self.speed * math.cos(self.angle) * ms / 1000
         self.rect.centery = self.rect.centery - self.speed * math.sin(self.angle) * ms / 1000
         if self.rect.colliderect(target):
-            target.get_hit(self.damage)
+            target.kill()
             self.kill()
         if self.seconds >= 9000:
             self.kill()
@@ -199,91 +197,72 @@ class Bullet(Object):
 
 
 class Player(Entity):
-    player_group = None
     def __init__(self, pos, hp, max_hp, damage, speed=ST_SPEED, img='player.bmp'):
         super().__init__(pos, hp, max_hp, damage, speed, img)
         self.image = pg.transform.scale(self.image, (20, 20))
         self.rect = self.image.get_rect().move(self.pos)
         self.is_dashing = False
-        self.dash_start_time = None
+        self.dash_time = None
         self.dash_directions = None
 
     def update(self, ms):
-        # print(self.hp)
+        if self.dash_time is not None:
+            self.dash_time += ms / 1000
+
         delta_x, delta_y = 0, 0
-        if self.is_dashing and self.dash_directions and self.dash_start_time:
-            if self.dash_directions['right']:
-                delta_x += self.speed * 4 * ms / 1000
-            if self.dash_directions['left']:
-                delta_x -= self.speed * 4 * ms / 1000
-
-            self.rect.x += delta_x
-            object = pg.sprite.spritecollideany(self, Object.hard_blocks)
-            if object:
-                self.end_dash()
-                if delta_x > 0:
-                    self.rect.right = object.rect.left
-                elif delta_x < 0:
-                    self.rect.left = object.rect.right
-                return
-
-            if self.dash_directions['up']:
-                delta_y -= self.speed * 4 * ms / 1000
-            if self.dash_directions['down']:
-                delta_y += self.speed * 4 * ms / 1000
-
-            self.rect.y += delta_y
-            object = pg.sprite.spritecollideany(self, Object.hard_blocks)
-            if object:
-                self.end_dash()
-                if delta_y > 0:
-                    self.rect.bottom = object.rect.top
-                elif delta_y < 0:
-                    self.rect.top = object.rect.bottom
-                return
-
-            if pg.time.get_ticks() - self.dash_start_time > 240:
-                self.end_dash()
-            return
 
         keys = pg.key.get_pressed()
-        left = keys[K_a] or keys[K_LEFT]
-        right = keys[K_d] or keys[K_RIGHT]
-        up = keys[K_w] or keys[K_UP]
-        down = keys[K_s] or keys[K_DOWN]
+        left = keys[pg.K_a] or keys[pg.K_LEFT]
+        right = keys[pg.K_d] or keys[pg.K_RIGHT]
+        up = keys[pg.K_w] or keys[pg.K_UP]
+        down = keys[pg.K_s] or keys[pg.K_DOWN]
 
-        if left:
-            delta_x -= self.speed * ms / 1000
-        if right:
-            delta_x += self.speed * ms / 1000
+        if self.is_dashing and self.dash_directions['left'] or left:
+            delta_x -= (4 if self.is_dashing else 1) * self.speed * ms / 1000
+        if self.is_dashing and self.dash_directions['right'] or right:
+            delta_x += (4 if self.is_dashing else 1) * self.speed * ms / 1000
         self.rect.x += delta_x
-        object = pg.sprite.spritecollideany(self, Object.hard_blocks)
-        if object:
-            if delta_x > 0:
-                self.rect.right = object.rect.left
-            elif delta_x < 0:
-                self.rect.left = object.rect.right
 
-        if up:
-            delta_y -= self.speed * ms / 1000
-        if down:
-            delta_y += self.speed * ms / 1000
+        sprite = pg.sprite.spritecollideany(self, Object.hard_blocks)
+        if sprite:
+            if self.is_dashing:
+                self.end_dash()
+
+            if delta_x > 0:
+                self.rect.right = sprite.rect.left
+            elif delta_x < 0:
+                self.rect.left = sprite.rect.right
+
+        if self.is_dashing and self.dash_directions['up'] or up:
+            delta_y -= (4 if self.is_dashing else 1)  * self.speed * ms / 1000
+        if self.is_dashing and self.dash_directions['down'] or down:
+            delta_y += (4 if self.is_dashing else 1) * self.speed * ms / 1000
         self.rect.y += delta_y
-        object = pg.sprite.spritecollideany(self, Object.hard_blocks)
-        if object:
+
+        sprite = pg.sprite.spritecollideany(self, Object.hard_blocks)
+        if sprite:
+            if self.is_dashing:
+                self.end_dash()
+
             if delta_y > 0:
-                self.rect.bottom = object.rect.top
+                self.rect.bottom = sprite.rect.top
             elif delta_y < 0:
-                self.rect.top = object.rect.bottom
+                self.rect.top = sprite.rect.bottom
+
+        if self.is_dashing and self.dash_time > 0.3:
+            self.end_dash()
 
     def start_dash(self):
+        if self.dash_time is not None and self.dash_time < 1:
+            return
+
         self.is_dashing = True
-        self.dash_start_time = pg.time.get_ticks()
+        self.dash_time = 0
         keys = pg.key.get_pressed()
-        left = keys[K_a] or keys[K_LEFT]
-        right = keys[K_d] or keys[K_RIGHT]
-        up = keys[K_w] or keys[K_UP]
-        down = keys[K_s] or keys[K_DOWN]
+        left = keys[pg.K_a] or keys[pg.K_LEFT]
+        right = keys[pg.K_d] or keys[pg.K_RIGHT]
+        up = keys[pg.K_w] or keys[pg.K_UP]
+        down = keys[pg.K_s] or keys[pg.K_DOWN]
         self.dash_directions = {
             'left': left,
             'right': right,
@@ -293,7 +272,6 @@ class Player(Entity):
 
     def end_dash(self):
         self.is_dashing = False
-        self.dash_start_time = None
         self.dash_directions = None
 
     def get_hit(self, damage):
@@ -334,8 +312,6 @@ class Level:
         for y, line in enumerate(self.level):
             for x, symbol in enumerate(line):
                 if symbol in TILES.keys():
-                    if symbol == '@':
-                        player_pos = x * TILE_SIZE, y * TILE_SIZE
                     if symbol == ':':
                         enemies_chars.append(('e', (x * TILE_SIZE, y * TILE_SIZE), 100, 100, 1))
                     if symbol == '%':
@@ -355,28 +331,30 @@ class Level:
 class Game:
     def __init__(self):
         pg.init()
-        self.screen = pg.display.set_mode(WIN_SIZE.size, vsync=True)
+        self.init_screen()
         self.clock = pg.time.Clock()
-        self.menu_running = True
-        self.game_running = False
-        # self.camera = Camera()
+        self.menu_running, self.game_running = True, False
+        self.player = None
+        self.init_groups()
+        self.camera = Camera()
+
+    def init_screen(self):
+        self.screen = pg.display.set_mode(WIN_SIZE.size, vsync=True)
+        pg.display.set_caption('Rogue')
+
+    def init_groups(self):
         self.all_sprites = pg.sprite.Group()
         self.hard_blocks = pg.sprite.Group()
         self.objects = pg.sprite.Group()
         self.entities = pg.sprite.Group()
-        self.player = None
-        self.objects = pg.sprite.Group()
         self.bullets = pg.sprite.Group()
-        self.entities = pg.sprite.Group()
         self.enemies = pg.sprite.Group()
+
         Bullet.bullets = self.bullets
         Object.all_sprites = self.all_sprites
         Object.hard_blocks = self.hard_blocks
         Entity.entities = self.entities
         Enemy.enemies = self.enemies
-        self.camera = Camera()
-        # Player.player = self.player
-        # когда появится класс предметов добавить в группу
 
     def menu_run(self):
         self.button = load_image(os.path.join(textures, 'Start1.png'))
@@ -389,12 +367,12 @@ class Game:
 
     def menu_events(self):
         for event in pg.event.get():
-            if event.type == QUIT:
+            if event.type == pg.QUIT:
                 self.menu_running = False
-            if event.type == KEYUP:
-                if event.key == K_ESCAPE:
+            if event.type == pg.KEYUP:
+                if event.key == pg.K_ESCAPE:
                     self.menu_running = False
-            if event.type == MOUSEBUTTONUP:
+            if event.type == pg.MOUSEBUTTONUP:
                 if self.buttonrect.collidepoint(event.pos):
                     self.game_run()
 
@@ -411,6 +389,8 @@ class Game:
         self.hard_blocks.empty()
         self.objects.empty()
         self.entities.empty()
+        self.enemies.empty()
+        self.bullets.empty()
         self.game_running = True
         self.level = Level()
 
@@ -429,16 +409,16 @@ class Game:
 
     def game_events(self):
         for event in pg.event.get():
-            if event.type == QUIT:
+            if event.type == pg.QUIT:
                 self.game_running = False
                 self.menu_running = False
-            elif event.type == KEYUP:
-                if event.key == K_ESCAPE:
+            elif event.type == pg.KEYUP:
+                if event.key == pg.K_ESCAPE:
                     self.game_running = False
                     self.player.death()
-                elif event.key in [K_w, K_s, K_a, K_d]:
+                elif event.key in [pg.K_w, pg.K_s, pg.K_a, pg.K_d]:
                     pass
-            elif event.type == MOUSEBUTTONDOWN:
+            elif event.type == pg.MOUSEBUTTONDOWN:
                 if event.button == 3:
                     if self.player:
                         self.player.start_dash()
