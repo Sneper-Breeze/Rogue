@@ -1,10 +1,8 @@
+import copy
 import random
-import os
-import pygame as pg
 
 TILE_SIZE = 32
 
-import copy
 ENEMIES = [':', '%']
 
 

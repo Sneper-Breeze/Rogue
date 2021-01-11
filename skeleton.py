@@ -1,6 +1,5 @@
 import os
 import math
-import random
 import pygame as pg
 from map import Generator
 
@@ -19,17 +18,25 @@ TILES = {
     ':': 'floor.bmp' # Враг 2
 }
 HARD_TILES = ['#']
+ENEMY_HP = 100
+ENEMY_DAMAGE = 1
+
+PLAYER_HP = 100
+PLAYER_SPEED = 400
+ENEMY_SPEED = PLAYER_SPEED * 0.75
+
+PLAYER_DAMAGE = 1
 
 
 def load_image(img, colorkey=None):
     try:
         image = pg.image.load(img)
-    except Exception:
+    except FileNotFoundError:
         print('Картинка не нашлась')
         image = pg.Surface((64, 64))
         image.fill(pg.Color('red'))
         return image
-    if colorkey == None:
+    if colorkey is None:
         image.convert()
     else:
         if colorkey == -1:
@@ -64,8 +71,7 @@ class Entity(Object):
     # Поэтому пока что закоменчу эту группу
     # all_sprites = None
     entities = None
-    def __init__(self, pos, hp, max_hp, damage, speed=ST_SPEED,
-        img=os.path.join(textures, 'none.png')):
+    def __init__(self, pos, hp, max_hp, damage, speed, img=os.path.join(textures, 'none.png')):
         super().__init__(pos, img)
         # super(Object, self).__init__(Entity.entities)
         self.pos = pos
@@ -91,18 +97,20 @@ class Entity(Object):
     # игре когда она будет вызывать move, чтобы не передавать сюда level
     def move(self, x, y):
         new_pos = self.pos[0] + x, self.pos[1] + y
-        if new_pos[0] != self.pos[0] and new_pos[1] != self.pos[1] or max(abs(new_pos[0] - self.pos[0]),
+        if new_pos[0] != self.pos[0] and new_pos[1] != self.pos[1] or \
+            max(abs(new_pos[0] - self.pos[0]),
             abs(new_pos[1] - self.pos[1])) > self.speed:
             return False
-        else:
-            self.pos = new_pos
+
+        self.pos = new_pos
         self.rect.topleft = self.pos
+        return True
 
 
 class Enemy(Entity):
     enemies = None
-    def __init__(self, pos, hp, max_hp, damage, speed=ST_SPEED * 0.75, img='enemy.bmp'):
-        super().__init__(pos, hp, max_hp, damage, speed, img)
+    def __init__(self, pos, img='enemy.bmp'):
+        super().__init__(pos, ENEMY_HP, ENEMY_HP, ENEMY_DAMAGE, ENEMY_SPEED, img)
         self.add(Enemy.enemies)
 
     def update(self, target, ms):
@@ -142,8 +150,8 @@ class Enemy(Entity):
 
 
 class Turret(Enemy):
-    def __init__(self, pos, hp, max_hp, damage, speed=1, img='turret.png'):
-        super().__init__(pos, hp, max_hp, damage, speed, img)
+    def __init__(self, pos, img='turret.png'):
+        super().__init__(pos, img)
         self.pos = pos
         self.seconds = 0
 
@@ -197,8 +205,8 @@ class Bullet(Object):
 
 
 class Player(Entity):
-    def __init__(self, pos, hp, max_hp, damage, speed=ST_SPEED, img='player.bmp'):
-        super().__init__(pos, hp, max_hp, damage, speed, img)
+    def __init__(self, pos, img='player.bmp'):
+        super().__init__(pos, PLAYER_HP, PLAYER_HP, PLAYER_DAMAGE, PLAYER_SPEED, img)
         self.image = pg.transform.scale(self.image, (20, 20))
         self.rect = self.image.get_rect().move(self.pos)
         self.is_dashing = False
@@ -313,9 +321,9 @@ class Level:
             for x, symbol in enumerate(line):
                 if symbol in TILES.keys():
                     if symbol == ':':
-                        enemies_chars.append(('e', (x * TILE_SIZE, y * TILE_SIZE), 100, 100, 1))
+                        enemies_chars.append(('e', (x * TILE_SIZE, y * TILE_SIZE)))
                     if symbol == '%':
-                        enemies_chars.append(('t', (x * TILE_SIZE, y * TILE_SIZE), 100, 100, 10))
+                        enemies_chars.append(('t', (x * TILE_SIZE, y * TILE_SIZE)))
                     if symbol == ' ':
                         continue
 
@@ -323,9 +331,9 @@ class Level:
 
         for enemy in enemies_chars:
             if enemy[0] == 'e':
-                Enemy(*enemy[1:])
+                Enemy(enemy[1])
             else:
-                Turret(*enemy[1:])
+                Turret(enemy[1])
 
 
 class Game:
@@ -337,6 +345,9 @@ class Game:
         self.player = None
         self.init_groups()
         self.camera = Camera()
+        self.button = None
+        self.buttonrect = None
+        self.level = None
 
     def init_screen(self):
         self.screen = pg.display.set_mode(WIN_SIZE.size, vsync=True)
@@ -395,7 +406,7 @@ class Game:
         self.level = Level()
 
         if self.player is None:
-            self.player = Player(self.level.starting_point, 100, 100, 20)
+            self.player = Player(self.level.starting_point)
         else:
             self.player.rect.topleft = self.level.starting_point
 
