@@ -8,7 +8,7 @@ textures = os.path.join(current_dir, 'data')
 FPS = 60
 TILE_SIZE = 32
 WIN_SIZE = pg.Rect(0, 0, 1024, 720)
-ST_SPEED = 250
+ST_SPEED = 5
 TILES = {
     ' ': 'space.bmp', # Пустота
     '.': 'floor.bmp', # Пол
@@ -123,11 +123,14 @@ class Enemy(Entity):
         self.rect.x += delta_x
 
         sprite = pg.sprite.spritecollideany(self, Object.hard_blocks)
+        out_of_bounds = len(pg.sprite.spritecollide(self, Object.all_sprites, False)) == 1
         if sprite:
             if delta_x > 0:
                 self.rect.right = sprite.rect.left
             elif delta_x < 0:
                 self.rect.left = sprite.rect.right
+        if out_of_bounds:
+            self.death()
 
         if target.rect.centery < self.rect.centery:
             delta_y -= self.speed * ms / 1000
@@ -141,6 +144,8 @@ class Enemy(Entity):
                 self.rect.bottom = sprite.rect.top
             elif delta_y < 0:
                 self.rect.top = sprite.rect.bottom
+        if out_of_bounds:
+            self.death()
 
         if self.rect.colliderect(target):
             if target.is_dashing:
@@ -411,9 +416,9 @@ class Game:
             self.player.rect.topleft = self.level.starting_point
 
         while self.game_running:
-            self.game_render()
             self.game_events()
             self.game_update()
+            self.game_render()
 
         if not self.player.alive():
             self.player = None
