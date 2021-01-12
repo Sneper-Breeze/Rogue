@@ -15,7 +15,7 @@ TILES = {
     '#': 'wall.bmp', # Стена
     '@': 'floor.bmp', # Игрок
     '%': 'floor.bmp', # Враг 1
-    ':': 'floor.bmp' # Враг 2
+    ':': 'floor.bmp', # Враг 2
 }
 HARD_TILES = ['#']
 ENEMY_HP = 100
@@ -23,7 +23,7 @@ ENEMY_DAMAGE = 1
 
 PLAYER_HP = 100
 PLAYER_SPEED = 400
-ENEMY_SPEED = PLAYER_SPEED * 0.75
+ENEMY_SPEED = PLAYER_SPEED * 0.2
 
 PLAYER_DAMAGE = 1
 
@@ -170,9 +170,6 @@ class Turret(Enemy):
             else:
                 target.kill()
 
-    def death(self):
-        self.kill()
-
 
 class Bullet(Object):
     bullets = None
@@ -196,12 +193,43 @@ class Bullet(Object):
         self.rect.centerx = self.rect.centerx - self.speed * math.cos(self.angle) * ms / 1000
         self.rect.centery = self.rect.centery - self.speed * math.sin(self.angle) * ms / 1000
         if self.rect.colliderect(target):
-            target.kill()
+            if not target.is_dashing:
+                target.kill()
             self.kill()
         if self.seconds >= 9000:
             self.kill()
         if pg.sprite.spritecollideany(self, Object.hard_blocks):
             self.kill()
+
+
+class Boss(Enemy):
+    def __init__(self, *args, img='floor.bmp'):
+        super().__init__(*args, img=img)
+        self.seconds = 0
+        self.img = img
+
+    def update(self, target, ms):
+        super().update(target, ms)
+        self.seconds += ms
+        if self.seconds >= 10000 and self.img == 'floor.bmp':
+            print('j')
+            self.img = 'boss.bmp'
+            self.image = load_image(os.path.join(textures, 'boss.bmp'))
+            self.rect = self.image.get_rect()
+        if self.img == 'floor.bmp':
+            return
+        dist_x = abs(target.rect.centerx - self.rect.centerx)
+        dist_y = abs(target.rect.centery - self.rect.centery)
+        if dist_x <= 500 and dist_y <= 500:
+            if self.seconds >= 1000:
+                self.seconds = 0
+                # print(self.pos, 't')
+                Bullet(self.rect.center, target, self.damage)
+        if self.rect.colliderect(target):
+            if target.is_dashing:
+                self.death()
+            else:
+                target.kill()
 
 
 class Player(Entity):
@@ -444,6 +472,8 @@ class Game:
         self.camera.update(self.player)
         for enemy in Enemy.enemies:
             enemy.update(self.player, ms=ms)
+        if not Enemy.enemies:
+            Boss(self.level.starting_point)
         # for enemy in self.level.enemies:
         #     if enemy.update(self.player, ms):
         #         self.level.enemies.remove(enemy)
