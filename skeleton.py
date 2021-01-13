@@ -15,7 +15,7 @@ TILES = {
     '#': 'wall.bmp', # Стена
     '@': 'floor.bmp', # Игрок
     '%': 'floor.bmp', # Враг 1
-    ':': 'floor.bmp' # Враг 2
+    ':': 'floor.bmp', # Враг 2
 }
 HARD_TILES = ['#']
 ENEMY_HP = 100
@@ -23,7 +23,7 @@ ENEMY_DAMAGE = 1
 
 PLAYER_HP = 100
 PLAYER_SPEED = 400
-ENEMY_SPEED = PLAYER_SPEED * 0.75
+ENEMY_SPEED = PLAYER_SPEED * 0.2
 
 PLAYER_DAMAGE = 1
 
@@ -109,7 +109,7 @@ class Entity(Object):
 
 class Enemy(Entity):
     enemies = None
-    def __init__(self, pos, img='enemy.bmp'):
+    def __init__(self, pos, img='enemy.bmp', hp=ENEMY_HP, dmg=ENEMY_DAMAGE, spd=ENEMY_SPEED):
         super().__init__(pos, ENEMY_HP, ENEMY_HP, ENEMY_DAMAGE, ENEMY_SPEED, img)
         self.add(Enemy.enemies)
 
@@ -170,18 +170,16 @@ class Turret(Enemy):
             else:
                 target.kill()
 
-    def death(self):
-        self.kill()
-
 
 class Bullet(Object):
     bullets = None
-    def __init__(self, pos, target, damage, speed=400, img='Bullet.bmp'):
+    def __init__(self, pos, target, damage, speed=400, img='Bullet.bmp', isboss=False):
         # self.add(Enemy.enemies)
         # print(pos)
         super().__init__(pos, img)
         self.add(Bullet.bullets)
         self.seconds = 0
+        self.isboss = isboss
         self.target = target
         self.damage = damage
         self.speed = speed
@@ -196,12 +194,55 @@ class Bullet(Object):
         self.rect.centerx = self.rect.centerx - self.speed * math.cos(self.angle) * ms / 1000
         self.rect.centery = self.rect.centery - self.speed * math.sin(self.angle) * ms / 1000
         if self.rect.colliderect(target):
-            target.kill()
+            if not target.is_dashing:
+                target.kill()
             self.kill()
         if self.seconds >= 9000:
             self.kill()
         if pg.sprite.spritecollideany(self, Object.hard_blocks):
-            self.kill()
+            if not self.isboss:
+                self.kill()
+
+
+class Boss(Enemy):
+    def __init__(self, pos, img='boss.bmp'):
+        super().__init__(pos, img=img, hp=ENEMY_HP * 15)
+        self.seconds = 0
+        self.img = img
+
+    def update(self, target, ms):
+        self.seconds += ms
+        delta_x = delta_y = 0
+
+        if target.rect.centerx < self.rect.centerx:
+            delta_x -= self.speed * ms / 1000
+        elif target.rect.centerx > self.rect.centerx:
+            delta_x += self.speed * ms / 1000
+        self.rect.x += delta_x
+
+        if target.rect.centery < self.rect.centery:
+            delta_y -= self.speed * ms / 1000
+        elif target.rect.centery > self.rect.centery:
+            delta_y += self.speed * ms / 1000
+        self.rect.y += delta_y
+
+        if self.rect.colliderect(target):
+            if target.is_dashing:
+                self.kill()
+            else:
+                target.kill()
+        dist_x = abs(target.rect.centerx - self.rect.centerx)
+        dist_y = abs(target.rect.centery - self.rect.centery)
+        if dist_x <= 500 and dist_y <= 500:
+            if self.seconds >= 100:
+                self.seconds = 0
+                # print(self.pos, 't')
+                Bullet(self.rect.center, target, 0.1, isboss=True)
+        if self.rect.colliderect(target):
+            if target.is_dashing:
+                self.death()
+            else:
+                target.kill()
 
 
 class Player(Entity):
@@ -444,6 +485,8 @@ class Game:
         self.camera.update(self.player)
         for enemy in Enemy.enemies:
             enemy.update(self.player, ms=ms)
+        if not Enemy.enemies:
+            Boss((-200, -200))
         # for enemy in self.level.enemies:
         #     if enemy.update(self.player, ms):
         #         self.level.enemies.remove(enemy)
