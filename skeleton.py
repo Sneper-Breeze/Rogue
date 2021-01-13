@@ -109,7 +109,7 @@ class Entity(Object):
 
 class Enemy(Entity):
     enemies = None
-    def __init__(self, pos, img='enemy.bmp'):
+    def __init__(self, pos, img='enemy.bmp', hp=ENEMY_HP, dmg=ENEMY_DAMAGE, spd=ENEMY_SPEED):
         super().__init__(pos, ENEMY_HP, ENEMY_HP, ENEMY_DAMAGE, ENEMY_SPEED, img)
         self.add(Enemy.enemies)
 
@@ -173,12 +173,13 @@ class Turret(Enemy):
 
 class Bullet(Object):
     bullets = None
-    def __init__(self, pos, target, damage, speed=400, img='Bullet.bmp'):
+    def __init__(self, pos, target, damage, speed=400, img='Bullet.bmp', isboss=False):
         # self.add(Enemy.enemies)
         # print(pos)
         super().__init__(pos, img)
         self.add(Bullet.bullets)
         self.seconds = 0
+        self.isboss = isboss
         self.target = target
         self.damage = damage
         self.speed = speed
@@ -199,32 +200,44 @@ class Bullet(Object):
         if self.seconds >= 9000:
             self.kill()
         if pg.sprite.spritecollideany(self, Object.hard_blocks):
-            self.kill()
+            if not self.isboss:
+                self.kill()
 
 
 class Boss(Enemy):
-    def __init__(self, *args, img='floor.bmp'):
-        super().__init__(*args, img=img)
+    def __init__(self, pos, img='boss.bmp'):
+        super().__init__(pos, img=img, hp=ENEMY_HP * 15)
         self.seconds = 0
         self.img = img
 
     def update(self, target, ms):
-        super().update(target, ms)
         self.seconds += ms
-        if self.seconds >= 10000 and self.img == 'floor.bmp':
-            print('j')
-            self.img = 'boss.bmp'
-            self.image = load_image(os.path.join(textures, 'boss.bmp'))
-            self.rect = self.image.get_rect()
-        if self.img == 'floor.bmp':
-            return
+        delta_x = delta_y = 0
+
+        if target.rect.centerx < self.rect.centerx:
+            delta_x -= self.speed * ms / 1000
+        elif target.rect.centerx > self.rect.centerx:
+            delta_x += self.speed * ms / 1000
+        self.rect.x += delta_x
+
+        if target.rect.centery < self.rect.centery:
+            delta_y -= self.speed * ms / 1000
+        elif target.rect.centery > self.rect.centery:
+            delta_y += self.speed * ms / 1000
+        self.rect.y += delta_y
+
+        if self.rect.colliderect(target):
+            if target.is_dashing:
+                self.kill()
+            else:
+                target.kill()
         dist_x = abs(target.rect.centerx - self.rect.centerx)
         dist_y = abs(target.rect.centery - self.rect.centery)
         if dist_x <= 500 and dist_y <= 500:
-            if self.seconds >= 1000:
+            if self.seconds >= 100:
                 self.seconds = 0
                 # print(self.pos, 't')
-                Bullet(self.rect.center, target, self.damage)
+                Bullet(self.rect.center, target, 0.1, isboss=True)
         if self.rect.colliderect(target):
             if target.is_dashing:
                 self.death()
@@ -473,7 +486,7 @@ class Game:
         for enemy in Enemy.enemies:
             enemy.update(self.player, ms=ms)
         if not Enemy.enemies:
-            Boss(self.level.starting_point)
+            Boss((-200, -200))
         # for enemy in self.level.enemies:
         #     if enemy.update(self.player, ms):
         #         self.level.enemies.remove(enemy)
