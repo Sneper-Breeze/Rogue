@@ -248,6 +248,7 @@ class Boss(Enemy):
 class Player(Entity):
     def __init__(self, pos, img='player.bmp'):
         super().__init__(pos, PLAYER_HP, PLAYER_HP, PLAYER_DAMAGE, PLAYER_SPEED, img)
+        self.img = img
         self.image = pg.transform.scale(self.image, (20, 20))
         self.rect = self.image.get_rect().move(self.pos)
         self.is_dashing = False
@@ -257,6 +258,12 @@ class Player(Entity):
     def update(self, ms):
         if self.dash_time is not None:
             self.dash_time += ms / 1000
+        if self.dash_time:
+            if self.dash_time >= 1:
+                if '_after_dash' in self.img:
+                    self.img = self.img[:-15] + '.bmp'
+                self.image = load_image(os.path.join(textures, self.img))
+                self.image = pg.transform.scale(self.image, (20, 20))
 
         delta_x, delta_y = 0, 0
 
@@ -307,6 +314,9 @@ class Player(Entity):
 
         self.is_dashing = True
         self.dash_time = 0
+        self.img = self.img[:-4] + '_after_dash' + '.bmp'
+        self.image = load_image(os.path.join(textures, self.img))
+        self.image = pg.transform.scale(self.image, (20, 20))
         keys = pg.key.get_pressed()
         left = keys[pg.K_a] or keys[pg.K_LEFT]
         right = keys[pg.K_d] or keys[pg.K_RIGHT]
