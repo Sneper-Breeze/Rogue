@@ -123,9 +123,25 @@ class Enemy(Entity):
     enemies = None
     def __init__(self, pos, img='enemy.bmp'):
         super().__init__(pos, ENEMY_HP, ENEMY_HP, ENEMY_DAMAGE, ENEMY_SPEED, img)
+        self.images = {
+            'idle/movement': load_spritesheet(os.path.join(textures, 'slime_idle_movement.png'), 1, 8)
+        }
+        self.anim_state = 'idle/movement'
+        self.anim_time = 0
+        self.anim_delay = 0.1
+        self.anim_index = 0
+        self.direction = 0
         self.add(Enemy.enemies)
 
     def update(self, target, ms):
+        self.anim_time += ms / 1000
+        self.image = self.images[self.anim_state][self.anim_index][self.direction]
+        self.rect = self.image.get_rect().move(self.rect.topleft)
+
+        if self.anim_time > self.anim_delay:
+            self.anim_index = (self.anim_index + 1) % len(self.images[self.anim_state])
+            self.anim_time = 0
+
         delta_x = delta_y = 0
 
         if target.rect.centerx < self.rect.centerx:
@@ -133,6 +149,11 @@ class Enemy(Entity):
         elif target.rect.centerx > self.rect.centerx:
             delta_x += self.speed * ms / 1000
         self.rect.x += delta_x
+
+        if delta_x > 0:
+            self.direction = 0
+        elif delta_x < 0:
+            self.direction = 1
 
         sprite = pg.sprite.spritecollideany(self, Object.hard_blocks)
         if sprite:
