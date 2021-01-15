@@ -218,6 +218,14 @@ class Bullet(Object):
         self.target = target
         self.damage = damage
         self.speed = speed
+        self.images = {
+            'idle': load_spritesheet(os.path.join(textures, 'bullet.png'), 1, 6)
+        }
+        self.anim_state = 'idle'
+        self.anim_index = 0
+        self.direction = 0
+        self.anim_delay = 0.7
+        self.anim_time = 0
         delta_x = pos[0] - target.rect.centerx
         delta_y = pos[1] - target.rect.centery
         rads = math.atan2(delta_y, delta_x)
@@ -225,6 +233,15 @@ class Bullet(Object):
         self.angle = rads # Угол хранится в радианах, чтобы не переводить его каждый раз
 
     def update(self, target, ms):
+        self.anim_time += ms / 1000
+        self.image = self.images[self.anim_state][self.anim_index][self.direction]
+        self.rect = self.image.get_rect().move(self.rect.topleft)
+
+        if self.anim_time > self.anim_delay:
+            self.anim_time = 0
+            self.anim_index = (self.anim_index + 1) % len(self.images[self.anim_state])
+            print(self.anim_index)
+
         self.seconds += ms
         self.rect.centerx = self.rect.centerx - self.speed * math.cos(self.angle) * ms / 1000
         self.rect.centery = self.rect.centery - self.speed * math.sin(self.angle) * ms / 1000
@@ -259,6 +276,7 @@ class Player(Entity):
     def update(self, ms):
         self.anim_time += ms / 1000
         self.image = self.images[self.anim_state][self.anim_index][self.direction]
+        self.rect = self.image.get_rect().move(self.rect.topleft)
 
         if self.anim_time > self.anim_delay:
             self.anim_time = 0
