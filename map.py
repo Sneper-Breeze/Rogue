@@ -295,15 +295,15 @@ class Generator:
             y = 0
             x = 0
             while self.level[y][x] != '.':
-                x1 = room[0] + 2
-                x2 = room[0] - 2 + room[2]
+                x1 = room[0] + 3
+                x2 = room[0] - 3 + room[2]
                 try:
                     x = random.randint(x1, x2)
                 except Exception:
                     x = random.randint(x2, x1)
 
-                y1 = room[1] + 2
-                y2 = room[1] - 2 + room[3]
+                y1 = room[1] + 3
+                y2 = room[1] - 3 + room[3]
 
                 try:
                     y = random.randint(y1, y2)
