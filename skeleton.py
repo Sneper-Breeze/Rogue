@@ -418,8 +418,8 @@ class Level:
         for enemy in enemies_chars:
             if enemy[0] == 'e':
                 Enemy(enemy[1])
-            #else:
-            #    Turret(enemy[1])
+            else:
+                Turret(enemy[1])
 
 
 class Game:
