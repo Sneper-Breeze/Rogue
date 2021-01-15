@@ -46,6 +46,19 @@ def load_image(img, colorkey=None):
     return image
 
 
+class Icon(pg.sprite.Sprite):
+    # icons = None
+    def __init__(self, pos=(1, 1), img='None.png'):
+        super().__init__(Icon.icons)
+        self.img = img
+        self.image = load_image(os.path.join(textures, img))
+        self.rect = self.image.get_rect()
+        self.rect = self.rect.move(*pos)
+
+    def update(self, img):
+        self.img = img
+        self.image = load_image(os.path.join(textures, img))
+
 
 class Object(pg.sprite.Sprite):
     #all_sprites = None
@@ -144,9 +157,9 @@ class Enemy(Entity):
 
         if self.rect.colliderect(target):
             if target.is_dashing:
-                self.kill()
+                self.death()
             else:
-                target.kill()
+                target.death()
 
 
 class Turret(Enemy):
@@ -177,6 +190,8 @@ class Bullet(Object):
         # self.add(Enemy.enemies)
         # print(pos)
         super().__init__(pos, img)
+        if isboss:
+            self.image = pg.transform.scale(self.image, (15, 15))
         self.add(Bullet.bullets)
         self.seconds = 0
         self.isboss = isboss
@@ -191,14 +206,30 @@ class Bullet(Object):
 
     def update(self, target, ms):
         self.seconds += ms
+        if self.isboss:
+            delta_x = delta_y = 0
+
+            if target.rect.centerx < self.rect.centerx:
+                delta_x -= self.speed * ms / 1000
+            elif target.rect.centerx > self.rect.centerx:
+                delta_x += self.speed * ms / 1000
+            self.rect.x += delta_x
+    
+            if target.rect.centery < self.rect.centery:
+                delta_y -= self.speed * ms / 1000
+            elif target.rect.centery > self.rect.centery:
+                delta_y += self.speed * ms / 1000
+            self.rect.y += delta_y
+    
         self.rect.centerx = self.rect.centerx - self.speed * math.cos(self.angle) * ms / 1000
         self.rect.centery = self.rect.centery - self.speed * math.sin(self.angle) * ms / 1000
         if self.rect.colliderect(target):
             if not target.is_dashing:
                 target.kill()
             self.kill()
-        if self.seconds >= 9000:
-            self.kill()
+        if self.seconds >= 4000:
+            if not self.isboss:
+                self.kill()
         if pg.sprite.spritecollideany(self, Object.hard_blocks):
             if not self.isboss:
                 self.kill()
@@ -234,10 +265,10 @@ class Boss(Enemy):
         dist_x = abs(target.rect.centerx - self.rect.centerx)
         dist_y = abs(target.rect.centery - self.rect.centery)
         if dist_x <= 500 and dist_y <= 500:
-            if self.seconds >= 100:
+            if self.seconds >= 5000:
                 self.seconds = 0
                 # print(self.pos, 't')
-                Bullet(self.rect.center, target, 0.1, isboss=True)
+                Bullet(self.rect.center, target, 0.1, speed=200, isboss=True)
         if self.rect.colliderect(target):
             if target.is_dashing:
                 self.death()
@@ -248,18 +279,27 @@ class Boss(Enemy):
 class Player(Entity):
     def __init__(self, pos, img='player.bmp'):
         super().__init__(pos, PLAYER_HP, PLAYER_HP, PLAYER_DAMAGE, PLAYER_SPEED, img)
+        # pg.sprite.Sprite.__init__(Player.players)
+        # self.add(Player.players)
+        self.killed = False
         self.image = pg.transform.scale(self.image, (20, 20))
         self.rect = self.image.get_rect().move(self.pos)
         self.is_dashing = False
         self.dash_time = None
+        self.dash_icon = Icon(pos=(10, 10), img='dash.bmp')
+        self.dash_icon
         self.dash_directions = None
 
     def update(self, ms):
+        if self not in Object.all_sprites and not self.killed:
+            self.add(Object.all_sprites)
         if self.dash_time is not None:
             self.dash_time += ms / 1000
+        if self.dash_time:
+            if self.dash_time > 1 and self.dash_icon.img != 'dash.bmp':
+                self.dash_icon.update('dash.bmp')
 
         delta_x, delta_y = 0, 0
-
         keys = pg.key.get_pressed()
         left = keys[pg.K_a] or keys[pg.K_LEFT]
         right = keys[pg.K_d] or keys[pg.K_RIGHT]
@@ -320,6 +360,7 @@ class Player(Entity):
         }
 
     def end_dash(self):
+        self.dash_icon.update('no_dash.bmp')
         self.is_dashing = False
         self.dash_directions = None
 
@@ -328,6 +369,10 @@ class Player(Entity):
             pass
         else:
             super().get_hit(damage)
+
+    def death(self):
+        self.killed = True
+        self.kill()
 
 
 class Camera:
@@ -373,8 +418,8 @@ class Level:
         for enemy in enemies_chars:
             if enemy[0] == 'e':
                 Enemy(enemy[1])
-            else:
-                Turret(enemy[1])
+            #else:
+            #    Turret(enemy[1])
 
 
 class Game:
@@ -383,8 +428,8 @@ class Game:
         self.init_screen()
         self.clock = pg.time.Clock()
         self.menu_running, self.game_running = True, False
-        self.player = None
         self.init_groups()
+        self.player = None
         self.camera = Camera()
         self.button = None
         self.buttonrect = None
@@ -395,6 +440,8 @@ class Game:
         pg.display.set_caption('Rogue')
 
     def init_groups(self):
+        self.players = pg.sprite.Group()
+        self.icons = pg.sprite.Group()
         self.all_sprites = pg.sprite.Group()
         self.hard_blocks = pg.sprite.Group()
         self.objects = pg.sprite.Group()
@@ -407,6 +454,8 @@ class Game:
         Object.hard_blocks = self.hard_blocks
         Entity.entities = self.entities
         Enemy.enemies = self.enemies
+        Icon.icons = self.icons
+        # Player.players = self.players
 
     def menu_run(self):
         self.button = load_image(os.path.join(textures, 'Start1.png'))
@@ -436,21 +485,27 @@ class Game:
         self.screen.blit(self.button, self.buttonrect)
         pg.display.update()
 
-    def game_run(self):
+    def new_level(self):
+        self.boss = False
         self.all_sprites.empty()
         self.hard_blocks.empty()
         self.objects.empty()
         self.entities.empty()
         self.enemies.empty()
         self.bullets.empty()
-        self.game_running = True
+        if not self.game_running:
+            self.game_running = True
         self.level = Level()
-
         if self.player is None:
             self.player = Player(self.level.starting_point)
         else:
             self.player.rect.topleft = self.level.starting_point
+        if self.player.is_dashing:
+            self.player.end_dash()
+            self.player.dash_time = 1
 
+    def game_run(self):
+        self.new_level()
         while self.game_running:
             self.game_render()
             self.game_events()
@@ -466,6 +521,7 @@ class Game:
                 self.menu_running = False
             elif event.type == pg.KEYUP:
                 if event.key == pg.K_ESCAPE:
+                    print('escape')
                     self.game_running = False
                     self.player.death()
                 elif event.key in [pg.K_w, pg.K_s, pg.K_a, pg.K_d]:
@@ -487,6 +543,10 @@ class Game:
             enemy.update(self.player, ms=ms)
         if not Enemy.enemies:
             Boss((-200, -200))
+            if self.boss:
+                self.new_level()
+                return
+            self.boss = True
         # for enemy in self.level.enemies:
         #     if enemy.update(self.player, ms):
         #         self.level.enemies.remove(enemy)
@@ -498,6 +558,7 @@ class Game:
     def game_render(self):
         self.screen.fill((0, 0, 0))
         self.all_sprites.draw(self.screen)
+        self.icons.draw(self.screen)
         self.display_fps()
         pg.display.update()
 
