@@ -229,6 +229,7 @@ class Player(Entity):
         self.anim_state = 'idle'
         self.anim_time = 0
         self.anim_index = 0
+        self.anim_delay = 0.5
         self.rect = self.image.get_rect().move(self.pos)
         self.is_dashing = False
         self.dash_time = None
@@ -238,7 +239,7 @@ class Player(Entity):
         self.anim_time += ms / 1000
         self.image = self.images[self.anim_state][self.anim_index][self.direction]
 
-        if self.anim_time > 0.1:
+        if self.anim_time > self.anim_delay:
             self.anim_time = 0
             self.anim_index = (self.anim_index + 1) % len(self.images[self.anim_state])
 
@@ -295,10 +296,14 @@ class Player(Entity):
         if delta_x or delta_y:
             if self.anim_state != 'move':
                 self.anim_index = 0
+                self.anim_time = 0
+                self.anim_delay = 0.1
             self.anim_state = 'move'
         else:
-            if self.anim_index != 'idle':
+            if self.anim_state != 'idle':
                 self.anim_index = 0
+                self.anim_time = 0
+                self.anim_delay = 0.5
             self.anim_state = 'idle'
 
         if self.is_dashing and self.dash_time > 0.3:
