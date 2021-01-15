@@ -8,24 +8,40 @@ textures = os.path.join(current_dir, 'data')
 FPS = 60
 TILE_SIZE = 32
 WIN_SIZE = pg.Rect(0, 0, 1024, 720)
-ST_SPEED = 250
 TILES = {
     ' ': 'space.bmp', # Пустота
     '.': 'floor.bmp', # Пол
     '#': 'wall.bmp', # Стена
     '@': 'floor.bmp', # Игрок
     '%': 'floor.bmp', # Враг 1
-    ':': 'floor.bmp', # Враг 2
+    ':': 'floor.bmp' # Враг 2
 }
 HARD_TILES = ['#']
 ENEMY_HP = 100
 ENEMY_DAMAGE = 1
 
 PLAYER_HP = 100
-PLAYER_SPEED = 400
-ENEMY_SPEED = PLAYER_SPEED * 0.2
+PLAYER_SPEED = 300
+ENEMY_SPEED = PLAYER_SPEED * 0.75
+
+BULLET_SPEED = PLAYER_SPEED * 0.5
 
 PLAYER_DAMAGE = 1
+
+
+def Line(p1, p2):
+    A = (p1[1] - p2[1])
+    B = (p2[0] - p1[0])
+    C = (p1[0]*p2[1] - p2[0]*p1[1])
+    return A, B, -C
+
+
+def Intersection(L1, L2):
+    D  = L1[0] * L2[1] - L1[1] * L2[0]
+    if D != 0:
+        return True
+    else:
+        return False
 
 
 def load_image(img, colorkey=None):
@@ -33,18 +49,29 @@ def load_image(img, colorkey=None):
         image = pg.image.load(img)
     except FileNotFoundError:
         print('Картинка не нашлась')
-        image = pg.Surface((64, 64))
+        image = pg.Surface((32, 32))
         image.fill(pg.Color('red'))
         return image
     if colorkey is None:
         image.convert()
     else:
-        if colorkey == -1:
-            colorkey = image.get_at((0, 0))
-        image.set_colorkey(colorkey)
         image.convert_alpha()
     return image
 
+
+def load_spritesheet(img, rows, cols, colorkey=-1):
+    sprites = list()
+    full_image = pg.image.load(img)
+    full_image.convert_alpha()
+    full_rect = full_image.get_rect()
+    width, height = full_rect.w / cols, full_rect.h / rows
+    for row in range(rows):
+        for col in range(cols):
+            image = pg.Surface((width, height), pg.SRCALPHA)
+            rect = pg.Rect((width * col, height * row, width * col + width, height * row + height))
+            image.blit(full_image, (0, 0), rect)
+            sprites.append((image, pg.transform.flip(image, True, False)))
+    return sprites
 
 
 class Object(pg.sprite.Sprite):
@@ -109,38 +136,59 @@ class Entity(Object):
 
 class Enemy(Entity):
     enemies = None
-    def __init__(self, pos, img='enemy.bmp', hp=ENEMY_HP, dmg=ENEMY_DAMAGE, spd=ENEMY_SPEED):
+    def __init__(self, pos, img='enemy.bmp'):
         super().__init__(pos, ENEMY_HP, ENEMY_HP, ENEMY_DAMAGE, ENEMY_SPEED, img)
         self.add(Enemy.enemies)
 
     def update(self, target, ms):
         delta_x = delta_y = 0
-
         if target.rect.centerx < self.rect.centerx:
             delta_x -= self.speed * ms / 1000
         elif target.rect.centerx > self.rect.centerx:
             delta_x += self.speed * ms / 1000
-        self.rect.x += delta_x
-
-        sprite = pg.sprite.spritecollideany(self, Object.hard_blocks)
-        if sprite:
-            if delta_x > 0:
-                self.rect.right = sprite.rect.left
-            elif delta_x < 0:
-                self.rect.left = sprite.rect.right
 
         if target.rect.centery < self.rect.centery:
             delta_y -= self.speed * ms / 1000
         elif target.rect.centery > self.rect.centery:
             delta_y += self.speed * ms / 1000
-        self.rect.y += delta_y
 
-        sprite = pg.sprite.spritecollideany(self, Object.hard_blocks)
-        if sprite:
-            if delta_y > 0:
-                self.rect.bottom = sprite.rect.top
-            elif delta_y < 0:
-                self.rect.top = sprite.rect.bottom
+        # находим область в которой мы смотрим твёрдые блоки
+        # работает исправно
+        if delta_x < 0:
+            x1 = self.rect.left - abs(delta_x)
+            x2 = self.rect.right
+        else:
+            x1 = self.rect.left 
+            x2 = self.rect.right + delta_x
+        if delta_y < 0:
+            y1 = self.rect.top - abs(delta_y)
+            y2 = self.rect.bottom
+        else:
+            y1 = self.rect.top
+            y2 = self.rect.bottom + delta_y
+        view = pg.Rect(x1, y1, x2 - x1, y2 - y1)
+        sprites = []
+
+        # находим твёрдые блоки в области
+        # вроде работает. я не знаю как проверить это писец
+        for sprite in Object.hard_blocks:
+            if sprite.rect.colliderect(view):
+                sprites.append(sprite)
+
+        # пересекается ли линии ходьбы с твёрдыми блоками. я вообще в ах@@э
+        for sprite in sprites:
+            l1 = Line([x1, y1], [x2, y2])
+            rect = sprite.rect
+            if Intersection(l1, Line([rect.left, rect.top], [rect.right, rect.top])) or\
+               Intersection(l1, Line([rect.left, rect.top], [rect.left, rect.bottom])) or\
+               Intersection(l1, Line([rect.left, rect.bottom], [rect.right, rect.bottom])) or\
+               Intersection(l1, Line([rect.right, rect.top], [rect.right, rect.bottom])):
+                print(rect)
+                break
+        else:
+            self.rect.x += delta_x
+            self.rect.y += delta_y
+
 
         if self.rect.colliderect(target):
             if target.is_dashing:
@@ -170,16 +218,18 @@ class Turret(Enemy):
             else:
                 target.kill()
 
+    def death(self):
+        self.kill()
+
 
 class Bullet(Object):
     bullets = None
-    def __init__(self, pos, target, damage, speed=400, img='Bullet.bmp', isboss=False):
+    def __init__(self, pos, target, damage, speed=BULLET_SPEED, img='Bullet.bmp'):
         # self.add(Enemy.enemies)
         # print(pos)
         super().__init__(pos, img)
         self.add(Bullet.bullets)
         self.seconds = 0
-        self.isboss = isboss
         self.target = target
         self.damage = damage
         self.speed = speed
@@ -200,61 +250,34 @@ class Bullet(Object):
         if self.seconds >= 9000:
             self.kill()
         if pg.sprite.spritecollideany(self, Object.hard_blocks):
-            if not self.isboss:
-                self.kill()
-
-
-class Boss(Enemy):
-    def __init__(self, pos, img='boss.bmp'):
-        super().__init__(pos, img=img, hp=ENEMY_HP * 15)
-        self.seconds = 0
-        self.img = img
-
-    def update(self, target, ms):
-        self.seconds += ms
-        delta_x = delta_y = 0
-
-        if target.rect.centerx < self.rect.centerx:
-            delta_x -= self.speed * ms / 1000
-        elif target.rect.centerx > self.rect.centerx:
-            delta_x += self.speed * ms / 1000
-        self.rect.x += delta_x
-
-        if target.rect.centery < self.rect.centery:
-            delta_y -= self.speed * ms / 1000
-        elif target.rect.centery > self.rect.centery:
-            delta_y += self.speed * ms / 1000
-        self.rect.y += delta_y
-
-        if self.rect.colliderect(target):
-            if target.is_dashing:
-                self.kill()
-            else:
-                target.kill()
-        dist_x = abs(target.rect.centerx - self.rect.centerx)
-        dist_y = abs(target.rect.centery - self.rect.centery)
-        if dist_x <= 500 and dist_y <= 500:
-            if self.seconds >= 100:
-                self.seconds = 0
-                # print(self.pos, 't')
-                Bullet(self.rect.center, target, 0.1, isboss=True)
-        if self.rect.colliderect(target):
-            if target.is_dashing:
-                self.death()
-            else:
-                target.kill()
+            self.kill()
 
 
 class Player(Entity):
     def __init__(self, pos, img='player.bmp'):
         super().__init__(pos, PLAYER_HP, PLAYER_HP, PLAYER_DAMAGE, PLAYER_SPEED, img)
-        self.image = pg.transform.scale(self.image, (20, 20))
+        self.images = {
+            'idle': load_spritesheet(os.path.join(textures, 'player_idle.png'), 1, 5),
+            'move': load_spritesheet(os.path.join(textures, 'player_move.png'), 1, 6)
+        }
+        self.image = self.images['idle'][0][0]
+        self.direction = 0
+        self.anim_state = 'idle'
+        self.anim_time = 0
+        self.anim_index = 0
         self.rect = self.image.get_rect().move(self.pos)
         self.is_dashing = False
         self.dash_time = None
         self.dash_directions = None
 
     def update(self, ms):
+        self.anim_time += ms / 1000
+        self.image = self.images[self.anim_state][self.anim_index][self.direction]
+
+        if self.anim_time > 0.1:
+            self.anim_time = 0
+            self.anim_index = (self.anim_index + 1) % len(self.images[self.anim_state])
+
         if self.dash_time is not None:
             self.dash_time += ms / 1000
 
@@ -270,6 +293,13 @@ class Player(Entity):
             delta_x -= (4 if self.is_dashing else 1) * self.speed * ms / 1000
         if self.is_dashing and self.dash_directions['right'] or right:
             delta_x += (4 if self.is_dashing else 1) * self.speed * ms / 1000
+        
+        if delta_x < 0:
+            self.direction = 1
+        elif delta_x > 0:
+            self.direction = 0
+
+
         self.rect.x += delta_x
 
         sprite = pg.sprite.spritecollideany(self, Object.hard_blocks)
@@ -297,6 +327,15 @@ class Player(Entity):
                 self.rect.bottom = sprite.rect.top
             elif delta_y < 0:
                 self.rect.top = sprite.rect.bottom
+
+        if delta_x or delta_y:
+            if self.anim_state != 'move':
+                self.anim_index = 0
+            self.anim_state = 'move'
+        else:
+            if self.anim_index != 'idle':
+                self.anim_index = 0
+            self.anim_state = 'idle'
 
         if self.is_dashing and self.dash_time > 0.3:
             self.end_dash()
@@ -485,8 +524,6 @@ class Game:
         self.camera.update(self.player)
         for enemy in Enemy.enemies:
             enemy.update(self.player, ms=ms)
-        if not Enemy.enemies:
-            Boss((-200, -200))
         # for enemy in self.level.enemies:
         #     if enemy.update(self.player, ms):
         #         self.level.enemies.remove(enemy)
