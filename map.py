@@ -286,12 +286,10 @@ class Generator:
         for room in self.rooms_for_enemies:
             y = 0
             x = 0
-            print(room)
             while self.level[y][x] != '.':
                 x1 = room[0] + 2
                 x2 = room[2] - 2 + room[0]
                 x = random.randint(x1, x2)
-                print(room[3] + 1, room[3] - 1 + room[1])
                 y1 = room[1] + 2
                 y2 = room[3] - 2 + room[1]
                 y = random.randint(y1, y2)

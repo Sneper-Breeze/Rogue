@@ -22,7 +22,7 @@ ENEMY_DAMAGE = 1
 
 PLAYER_HP = 100
 PLAYER_SPEED = 300
-ENEMY_SPEED = PLAYER_SPEED * 0.75
+ENEMY_SPEED = PLAYER_SPEED * 0.5
 
 BULLET_SPEED = PLAYER_SPEED * 0.5
 
@@ -165,7 +165,7 @@ class Entity(Object):
 
 class Enemy(Entity):
     enemies = None
-    def __init__(self, pos, img='enemy.bmp'):
+    def __init__(self, pos, img='enemy.bmp', hp=ENEMY_HP):
         super().__init__(pos, ENEMY_HP, ENEMY_HP, ENEMY_DAMAGE, ENEMY_SPEED, img)
         self.images = {
             'idle/movement': load_spritesheet(os.path.join(textures, 'slime_idle_movement.png'), 1, 8)
@@ -233,7 +233,6 @@ class Enemy(Entity):
                Intersection(l1, Line([rect.left, rect.top], [rect.left, rect.bottom])) or\
                Intersection(l1, Line([rect.left, rect.bottom], [rect.right, rect.bottom])) or\
                Intersection(l1, Line([rect.right, rect.top], [rect.right, rect.bottom])):
-                print(rect)
                 break
         else:
             self.rect.x += delta_x
@@ -274,7 +273,7 @@ class Turret(Enemy):
 
 class Bullet(Object):
     bullets = None
-    def __init__(self, pos, target, damage, speed=BULLET_SPEED, img='Bullet.bmp'):
+    def __init__(self, pos, target, damage, speed=BULLET_SPEED, img='Bullet.bmp', isboss=False):
         # self.add(Enemy.enemies)
         # print(pos)
         super().__init__(pos, img)
@@ -282,6 +281,7 @@ class Bullet(Object):
             self.image = pg.transform.scale(self.image, (15, 15))
         self.add(Bullet.bullets)
         self.seconds = 0
+        self.isboss = isboss
         self.target = target
         self.damage = damage
         self.speed = speed
@@ -307,7 +307,6 @@ class Bullet(Object):
         if self.anim_time > self.anim_delay:
             self.anim_time = 0
             self.anim_index = (self.anim_index + 1) % len(self.images[self.anim_state])
-            print(self.anim_index)
 
         self.seconds += ms
         if self.isboss:
@@ -383,6 +382,7 @@ class Boss(Enemy):
 class Player(Entity):
     def __init__(self, pos, img='player.bmp'):
         super().__init__(pos, PLAYER_HP, PLAYER_HP, PLAYER_DAMAGE, PLAYER_SPEED, img)
+        self.killed = False
         self.images = {
             'idle': load_spritesheet(os.path.join(textures, 'player_idle.png'), 1, 5),
             'move': load_spritesheet(os.path.join(textures, 'player_move.png'), 1, 6)
@@ -660,7 +660,6 @@ class Game:
                 self.menu_running = False
             elif event.type == pg.KEYUP:
                 if event.key == pg.K_ESCAPE:
-                    print('escape')
                     self.game_running = False
                     self.player.death()
                 elif event.key in [pg.K_w, pg.K_s, pg.K_a, pg.K_d]:
