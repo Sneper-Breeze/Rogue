@@ -251,8 +251,24 @@ class Turret(Enemy):
         super().__init__(pos, img)
         self.pos = pos
         self.seconds = 0
+        self.images = {
+            'idle': load_spritesheet(os.path.join(textures, 'turret_idle.png'), 1, 5)
+        }
+        self.anim_state = 'idle'
+        self.anim_index = 0
+        self.direction = 0
+        self.anim_delay = 0.2
+        self.anim_time = 0
 
     def update(self, target, ms):
+        self.anim_time += ms / 1000
+        self.image = self.images[self.anim_state][self.anim_index][self.direction]
+        self.rect = self.image.get_rect().move(self.rect.topleft)
+
+        if self.anim_time > self.anim_delay:
+            self.anim_time = 0
+            self.anim_index = (self.anim_index + 1) % len(self.images[self.anim_state])
+
         self.seconds += ms
         dist_x = abs(target.rect.centerx - self.rect.centerx)
         dist_y = abs(target.rect.centery - self.rect.centery)
@@ -397,7 +413,6 @@ class Player(Entity):
         self.is_dashing = False
         self.dash_time = None
         self.dash_icon = Icon(pos=(10, 10), img='dash.bmp')
-        self.dash_icon
         self.dash_directions = None
 
     def update(self, ms):
