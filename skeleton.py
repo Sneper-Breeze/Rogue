@@ -59,6 +59,20 @@ def load_image(img, colorkey=None):
     return image
 
 
+def load_spritesheet(img, rows, cols, colorkey=-1):
+    sprites = list()
+    full_image = pg.image.load(img)
+    full_image.convert_alpha()
+    full_rect = full_image.get_rect()
+    width, height = full_rect.w / cols, full_rect.h / rows
+    for row in range(rows):
+        for col in range(cols):
+            image = pg.Surface((width, height), pg.SRCALPHA)
+            rect = pg.Rect((width * col, height * row, width * col + width, height * row + height))
+            image.blit(full_image, (0, 0), rect)
+            sprites.append((image, pg.transform.flip(image, True, False)))
+    return sprites
+
 
 def load_spritesheet(img, rows, cols, colorkey=-1):
     sprites = list()
@@ -153,14 +167,35 @@ class Enemy(Entity):
     enemies = None
     def __init__(self, pos, img='enemy.bmp'):
         super().__init__(pos, ENEMY_HP, ENEMY_HP, ENEMY_DAMAGE, ENEMY_SPEED, img)
+        self.images = {
+            'idle/movement': load_spritesheet(os.path.join(textures, 'slime_idle_movement.png'), 1, 8)
+        }
+        self.anim_state = 'idle/movement'
+        self.anim_time = 0
+        self.anim_delay = 0.1
+        self.anim_index = 0
+        self.direction = 0
         self.add(Enemy.enemies)
 
     def update(self, target, ms):
+        self.anim_time += ms / 1000
+        self.image = self.images[self.anim_state][self.anim_index][self.direction]
+        self.rect = self.image.get_rect().move(self.rect.topleft)
+
+        if self.anim_time > self.anim_delay:
+            self.anim_index = (self.anim_index + 1) % len(self.images[self.anim_state])
+            self.anim_time = 0
+
         delta_x = delta_y = 0
         if target.rect.centerx < self.rect.centerx:
             delta_x -= self.speed * ms / 1000
         elif target.rect.centerx > self.rect.centerx:
             delta_x += self.speed * ms / 1000
+
+        if delta_x > 0:
+            self.direction = 0
+        elif delta_x < 0:
+            self.direction = 1
 
         if target.rect.centery < self.rect.centery:
             delta_y -= self.speed * ms / 1000
@@ -250,6 +285,14 @@ class Bullet(Object):
         self.target = target
         self.damage = damage
         self.speed = speed
+        self.images = {
+            'idle': load_spritesheet(os.path.join(textures, 'bullet.png'), 1, 6)
+        }
+        self.anim_state = 'idle'
+        self.anim_index = 0
+        self.direction = 0
+        self.anim_delay = 0.7
+        self.anim_time = 0
         delta_x = pos[0] - target.rect.centerx
         delta_y = pos[1] - target.rect.centery
         rads = math.atan2(delta_y, delta_x)
@@ -257,6 +300,15 @@ class Bullet(Object):
         self.angle = rads # Угол хранится в радианах, чтобы не переводить его каждый раз
 
     def update(self, target, ms):
+        self.anim_time += ms / 1000
+        self.image = self.images[self.anim_state][self.anim_index][self.direction]
+        self.rect = self.image.get_rect().move(self.rect.topleft)
+
+        if self.anim_time > self.anim_delay:
+            self.anim_time = 0
+            self.anim_index = (self.anim_index + 1) % len(self.images[self.anim_state])
+            print(self.anim_index)
+
         self.seconds += ms
         if self.isboss:
             delta_x = delta_y = 0
@@ -340,6 +392,7 @@ class Player(Entity):
         self.anim_state = 'idle'
         self.anim_time = 0
         self.anim_index = 0
+        self.anim_delay = 0.5
         self.rect = self.image.get_rect().move(self.pos)
         self.is_dashing = False
         self.dash_time = None
@@ -350,8 +403,9 @@ class Player(Entity):
     def update(self, ms):
         self.anim_time += ms / 1000
         self.image = self.images[self.anim_state][self.anim_index][self.direction]
+        self.rect = self.image.get_rect().move(self.rect.topleft)
 
-        if self.anim_time > 0.1:
+        if self.anim_time > self.anim_delay:
             self.anim_time = 0
             self.anim_index = (self.anim_index + 1) % len(self.images[self.anim_state])
 
@@ -413,10 +467,14 @@ class Player(Entity):
         if delta_x or delta_y:
             if self.anim_state != 'move':
                 self.anim_index = 0
+                self.anim_time = 0
+                self.anim_delay = 0.1
             self.anim_state = 'move'
         else:
-            if self.anim_index != 'idle':
+            if self.anim_state != 'idle':
                 self.anim_index = 0
+                self.anim_time = 0
+                self.anim_delay = 0.5
             self.anim_state = 'idle'
 
         if self.is_dashing and self.dash_time > 0.3:
