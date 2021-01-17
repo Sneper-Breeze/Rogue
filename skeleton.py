@@ -538,9 +538,9 @@ class Player(Entity):
                 list_of_y.append(rect.y)
         if list_of_y:
             if delta_y < 0:
-                self.rect.y = max(list_of_y) + TILE_SIZE
+                self.rect.y = min(self.rect.y, max(list_of_y) + TILE_SIZE)
             if delta_y > 0:
-                self.rect.bottom = min(list_of_y)
+                self.rect.bottom = max(self.rect.y + self.rect.height, min(list_of_y))
         else:
             self.rect.y += delta_y
 
