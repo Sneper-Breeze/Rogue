@@ -121,6 +121,9 @@ class Object(pg.sprite.Sprite):
     def update(self, target, ms):
         pass
 
+    def draw(self, surface):
+        surface.blit(self.image, self.rect)
+
 
 class Entity(Object):
     # Не уверен, что нужно делать all sprites для Entity, он же добавляется в all sprites у object
@@ -444,40 +447,102 @@ class Player(Entity):
             delta_x -= (4 if self.is_dashing else 1) * self.speed * ms / 1000
         if self.is_dashing and self.dash_directions['right'] or right:
             delta_x += (4 if self.is_dashing else 1) * self.speed * ms / 1000
+        if self.is_dashing and self.dash_directions['up'] or up:
+            delta_y -= (4 if self.is_dashing else 1)  * self.speed * ms / 1000
+        if self.is_dashing and self.dash_directions['down'] or down:
+            delta_y += (4 if self.is_dashing else 1) * self.speed * ms / 1000
         
         if delta_x < 0:
             self.direction = 1
         elif delta_x > 0:
             self.direction = 0
 
+        if delta_x < 0:
+            x1 = self.rect.left - abs(delta_x)
+            x2 = self.rect.right
+        else:
+            x1 = self.rect.left 
+            x2 = self.rect.right + delta_x
+        if delta_y < 0:
+            y1 = self.rect.top - abs(delta_y)
+            y2 = self.rect.bottom
+        else:
+            y1 = self.rect.top
+            y2 = self.rect.bottom + delta_y
+        view = pg.Rect(x1, y1, x2 - x1, y2 - y1)
+        sprites = []
+        move = True
 
-        self.rect.x += delta_x
+        # находим твёрдые блоки в области
+        # вроде работает. я не знаю как проверить это писец
+        for sprite in Object.hard_blocks:
+            if sprite.rect.colliderect(view):
+                sprites.append(sprite)
 
-        sprite = pg.sprite.spritecollideany(self, Object.hard_blocks)
-        if sprite:
-            if self.is_dashing:
-                self.end_dash()
+        # пересекается ли линии ходьбы с твёрдыми блоками. я вообще в ах@@э
+        for sprite in sprites:
+            l1 = Line([x1, y1], [x2, y2])
+            rect = sprite.rect
+            if Intersection(l1, Line([rect.left, rect.top], [rect.right, rect.top])) or\
+               Intersection(l1, Line([rect.left, rect.top], [rect.left, rect.bottom])) or\
+               Intersection(l1, Line([rect.left, rect.bottom], [rect.right, rect.bottom])) or\
+               Intersection(l1, Line([rect.right, rect.top], [rect.right, rect.bottom])):
+                move = False
+                break
 
+        view = pg.Rect(x1, self.rect.y, x2 - x1, self.rect.height)
+        sprites = []
+
+        # находим твёрдые блоки в области
+        # вроде работает. я не знаю как проверить это писец
+        for sprite in Object.hard_blocks:
+            if sprite.rect.colliderect(view):
+                sprites.append(sprite)
+
+        list_of_x = []
+        # пересекается ли линии ходьбы с твёрдыми блоками. я вообще в ах@@э
+        for sprite in sprites:
+            l1 = Line([view.x, view.y], [view.left, view.bottom])
+            rect = sprite.rect
+            if Intersection(l1, Line([rect.left, rect.top], [rect.right, rect.top])) or\
+               Intersection(l1, Line([rect.left, rect.top], [rect.left, rect.bottom])) or\
+               Intersection(l1, Line([rect.left, rect.bottom], [rect.right, rect.bottom])) or\
+               Intersection(l1, Line([rect.right, rect.top], [rect.right, rect.bottom])):
+                list_of_x.append(rect.x)
+        if list_of_x:
+            if delta_x < 0:
+                self.rect.x = max(list_of_x) + TILE_SIZE
             if delta_x > 0:
-                self.rect.right = sprite.rect.left
-            elif delta_x < 0:
-                self.rect.left = sprite.rect.right
+                self.rect.right = min(list_of_x)
+        else:
+            self.rect.x += delta_x
 
-        if self.is_dashing and self.dash_directions['up'] or up:
-            delta_y -= (4 if self.is_dashing else 1)  * self.speed * ms / 1000
-        if self.is_dashing and self.dash_directions['down'] or down:
-            delta_y += (4 if self.is_dashing else 1) * self.speed * ms / 1000
-        self.rect.y += delta_y
+        view = pg.Rect(self.rect.x, y1, self.rect.width, y2-y1)
+        sprites = []
 
-        sprite = pg.sprite.spritecollideany(self, Object.hard_blocks)
-        if sprite:
-            if self.is_dashing:
-                self.end_dash()
+        # находим твёрдые блоки в области
+        # вроде работает. я не знаю как проверить это писец
+        for sprite in Object.hard_blocks:
+            if sprite.rect.colliderect(view):
+                sprites.append(sprite)
 
+        list_of_y = []
+        # пересекается ли линии ходьбы с твёрдыми блоками. я вообще в ах@@э
+        for sprite in sprites:
+            l1 = Line([view.x, view.y], [view.left, view.bottom])
+            rect = sprite.rect
+            if Intersection(l1, Line([rect.left, rect.top], [rect.right, rect.top])) or\
+               Intersection(l1, Line([rect.left, rect.top], [rect.left, rect.bottom])) or\
+               Intersection(l1, Line([rect.left, rect.bottom], [rect.right, rect.bottom])) or\
+               Intersection(l1, Line([rect.right, rect.top], [rect.right, rect.bottom])):
+                list_of_y.append(rect.y)
+        if list_of_y:
+            if delta_y < 0:
+                self.rect.y = max(list_of_y) + TILE_SIZE
             if delta_y > 0:
-                self.rect.bottom = sprite.rect.top
-            elif delta_y < 0:
-                self.rect.top = sprite.rect.bottom
+                self.rect.bottom = min(list_of_y)
+        else:
+            self.rect.y += delta_y
 
         if delta_x or delta_y:
             if self.anim_state != 'move':
@@ -582,6 +647,7 @@ class Game:
         self.init_screen()
         self.clock = pg.time.Clock()
         self.menu_running, self.game_running = True, False
+        self.view = pg.Rect(-5, -5, WIN_SIZE.width + 10, WIN_SIZE.height + 10)
         self.init_groups()
         self.player = None
         self.camera = Camera()
@@ -590,7 +656,7 @@ class Game:
         self.level = None
 
     def init_screen(self):
-        self.screen = pg.display.set_mode(WIN_SIZE.size, vsync=True)
+        self.screen = pg.display.set_mode(WIN_SIZE.size)
         pg.display.set_caption('Rogue')
 
     def init_groups(self):
