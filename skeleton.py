@@ -1,3 +1,4 @@
+import random
 import os
 import math
 import pygame as pg
@@ -5,6 +6,7 @@ from map import Generator
 
 current_dir = os.path.dirname(__file__)
 textures = os.path.join(current_dir, 'data')
+sounds_folder = os.path.join(textures, 'sounds')
 FPS = 60
 TILE_SIZE = 32
 WIN_SIZE = pg.Rect(0, 0, 1024, 720)
@@ -87,6 +89,15 @@ def load_spritesheet(img, rows, cols, colorkey=-1):
             image.blit(full_image, (0, 0), rect)
             sprites.append((image, pg.transform.flip(image, True, False)))
     return sprites
+
+
+def load_sounds(beginning, file_type):
+    files = filter(lambda file: file.startswith(beginning) and file.endswith(f'.{file_type}'),
+                   os.listdir(sounds_folder))
+    sounds = list()
+    for filename in files:
+        sounds.append(pg.mixer.Sound(os.path.join(sounds_folder, filename)))
+    return sounds
 
 
 class Icon(pg.sprite.Sprite):
@@ -399,6 +410,9 @@ class Player(Entity):
     def __init__(self, pos, img='player.bmp'):
         super().__init__(pos, PLAYER_HP, PLAYER_HP, PLAYER_DAMAGE, PLAYER_SPEED, img)
         self.killed = False
+        self.sounds = {
+            'footsteps': load_sounds('footstep', 'ogg')
+        }
         self.images = {
             'idle': load_spritesheet(os.path.join(textures, 'player_idle.png'), 1, 5),
             'move': load_spritesheet(os.path.join(textures, 'player_move.png'), 1, 6)
@@ -485,12 +499,17 @@ class Player(Entity):
                 self.anim_time = 0
                 self.anim_delay = 0.1
             self.anim_state = 'move'
+            if not pg.mixer.get_busy():
+                sound = random.choice(self.sounds['footsteps'])
+                sound.play()
         else:
             if self.anim_state != 'idle':
                 self.anim_index = 0
                 self.anim_time = 0
                 self.anim_delay = 0.5
             self.anim_state = 'idle'
+            if pg.mixer.get_busy():
+                pg.mixer.stop()
 
         if self.is_dashing and self.dash_time > 0.3:
             self.end_dash()
