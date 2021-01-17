@@ -18,7 +18,7 @@ TILES = {
 }
 HARD_TILES = ['#']
 ENEMY_HP = 100
-ENEMY_DAMAGE = 5
+ENEMY_DAMAGE = 20
 
 
 PLAYER_HP = 100
@@ -132,6 +132,7 @@ class Entity(Object):
         super().__init__(pos, img)
         # super(Object, self).__init__(Entity.entities)
         self.pos = pos
+        self.hitted = False
         self.max_hp = max_hp
         self.hp = hp
         self.speed = speed
@@ -140,9 +141,11 @@ class Entity(Object):
         self.add(Entity.entities)
 
     def get_hit(self, damage):
-        self.hp -= damage
-        if self.hp <= 0:
-            self.death()
+        if not self.hitted:
+            self.hp -= damage
+            if self.hp <= 0:
+                self.death()
+            self.hitted = 1
 
     def death(self):
         self.kill()
@@ -180,6 +183,11 @@ class Enemy(Entity):
 
     def update(self, target, ms):
         self.anim_time += ms / 1000
+        if self.hitted:
+            if self.hitted >= 1.1:
+                self.hitted = False
+            else:
+                self.hitted += ms / 1000
         self.image = self.images[self.anim_state][self.anim_index][self.direction]
         self.rect = self.image.get_rect().move(self.rect.topleft)
 
@@ -262,6 +270,13 @@ class Turret(Enemy):
         self.anim_time = 0
 
     def update(self, target, ms):
+        # print(self.damage)
+        # print(self.hp)
+        if self.hitted:
+            if self.hitted >= 1.1:
+                self.hitted = False
+            else:
+                self.hitted += ms / 1000
         self.anim_time += ms / 1000
         self.image = self.images[self.anim_state][self.anim_index][self.direction]
         self.rect = self.image.get_rect().move(self.rect.topleft)
@@ -277,7 +292,7 @@ class Turret(Enemy):
             if self.seconds >= 1000:
                 self.seconds = 0
                 # print(self.pos, 't')
-                Bullet(self.rect.center, target, self.damage * 5)
+                Bullet(self.rect.center, target, self.damage * 1.5)
         if self.rect.colliderect(target):
             if target.is_dashing:
                 target.hit(self)
@@ -341,8 +356,8 @@ class Bullet(Object):
                 delta_y += self.speed * ms / 1000
             self.rect.y += delta_y
         else:
-        	self.rect.centerx = self.rect.centerx - self.speed * math.cos(self.angle) * ms / 1000
-        	self.rect.centery = self.rect.centery - self.speed * math.sin(self.angle) * ms / 1000
+            self.rect.centerx = self.rect.centerx - self.speed * math.cos(self.angle) * ms / 1000
+            self.rect.centery = self.rect.centery - self.speed * math.sin(self.angle) * ms / 1000
         if self.rect.colliderect(target):
             if not target.is_dashing:
                 target.get_hit(self.damage)
@@ -401,6 +416,7 @@ class Player(Entity):
         }
         self.image = self.images['idle'][0][0]
         self.direction = 0
+        self.hitted = 0
         self.anim_state = 'idle'
         self.anim_time = 0
         self.anim_index = 0
@@ -413,6 +429,11 @@ class Player(Entity):
 
     def update(self, ms):
         # print(self.hp)
+        if self.hitted:
+            if self.hitted >= 2.5:
+                self.hitted = False
+            else:
+                self.hitted += ms / 1000
         self.anim_time += ms / 1000
         self.image = self.images[self.anim_state][self.anim_index][self.direction]
         self.rect = self.image.get_rect().move(self.rect.topleft)
@@ -516,10 +537,12 @@ class Player(Entity):
         self.dash_directions = None
 
     def get_hit(self, damage):
-        if self.is_dashing:
-            pass
-        else:
-            super().get_hit(damage)
+        if not self.hitted:
+            if self.is_dashing:
+                pass
+            else:
+                super().get_hit(damage)
+                self.hitted = 1
 
     def death(self):
         self.killed = True
@@ -571,7 +594,7 @@ class Level:
             if enemy[0] == 'e':
                 Enemy(enemy[1], hp=ENEMY_HP * self.k, damage=ENEMY_DAMAGE * self.k)
             else:
-                Turret(enemy[1], hp=ENEMY_HP * self.k, damage=ENEMY_DAMAGE * self.k)
+                Turret(enemy[1], hp=ENEMY_HP * self.k // 3, damage=ENEMY_DAMAGE * self.k)
 
 
 class Game:
@@ -647,13 +670,14 @@ class Game:
         self.enemies.empty()
         self.bullets.empty()
         if self.k == 0:
-        	self.k += 1
+            self.k += 1
         else:
-        	self.k += 0.25
+            self.k += 0.25
         if not self.game_running:
             self.game_running = True
         self.level = Level(self.k)
         if self.player is None:
+            self.k = 1
             self.player = Player(self.level.starting_point)
         else:
             self.player.rect.topleft = self.level.starting_point
