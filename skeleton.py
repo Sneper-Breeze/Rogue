@@ -361,7 +361,10 @@ class Bullet(Object):
         if self.rect.colliderect(target):
             if not target.is_dashing:
                 target.get_hit(self.damage)
-            self.kill()
+                if not self.isboss:
+                    self.kill()
+            else:
+                self.kill()
         if self.seconds >= 4000:
             if not self.isboss:
                 self.kill()
@@ -371,7 +374,7 @@ class Bullet(Object):
 
 
 class Boss(Enemy):
-    def __init__(self, pos, hp=ENEMY_HP * 7, damage=ENEMY_DAMAGE * 1.2, img='boss.bmp'):
+    def __init__(self, pos, hp=ENEMY_HP * 4, damage=ENEMY_DAMAGE * 1.2, img='boss.bmp'):
         super().__init__(pos, hp=hp, damage=damage, img=img)
         self.seconds = 0
         self.img = img
@@ -379,6 +382,11 @@ class Boss(Enemy):
     def update(self, target, ms):
         self.seconds += ms
         delta_x = delta_y = 0
+        if self.hitted:
+            if self.hitted >= 1.1:
+                self.hitted = False
+            else:
+                self.hitted += ms / 1000
 
         if target.rect.centerx < self.rect.centerx:
             delta_x -= self.speed * ms / 1000
@@ -394,16 +402,16 @@ class Boss(Enemy):
 
         if self.rect.colliderect(target):
             if target.is_dashing:
-                target.hit(self)
+                self.get_hit(target.damage)
             else:
                 target.get_hit(self.damage)
         dist_x = abs(target.rect.centerx - self.rect.centerx)
         dist_y = abs(target.rect.centery - self.rect.centery)
         if dist_x <= 500 and dist_y <= 500:
-            if self.seconds >= 5000:
+            if self.seconds >= 4000:
                 self.seconds = 0
                 # print(self.pos, 't')
-                Bullet(self.rect.center, target, 25, speed=200, isboss=True)
+                Bullet(self.rect.center, target, 25, speed=300, isboss=True)
 
 
 class Player(Entity):
@@ -430,7 +438,9 @@ class Player(Entity):
 
     def update(self, ms):
         # print(self.hp)
-        self.hp_bar.image = pg.transform.scale(self.hp_bar.image, (int(self.hp / self.max_hp * 100), 10))
+        if self.hp != self.hp_bar.image.get_size()[0]:
+            self.hp_bar.image = pg.transform.scale(self.hp_bar.image, 
+                (int(self.hp / self.max_hp * 100), 10))
         if self.hitted:
             if self.hitted >= 2.1:
                 self.hitted = False
@@ -727,7 +737,7 @@ class Game:
             enemy.update(self.player, ms=ms)
 
         if not Enemy.enemies:
-            Boss((-200, -200), hp=ENEMY_HP * self.k * 15, damage=ENEMY_DAMAGE * self.k * 1.2)
+            Boss((-200, -200), hp=ENEMY_HP * self.k * 5, damage=ENEMY_DAMAGE * self.k * 1.2)
             if self.boss:
                 self.new_level()
                 return
