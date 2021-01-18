@@ -414,6 +414,7 @@ class Player(Entity):
             'idle': load_spritesheet(os.path.join(textures, 'player_idle.png'), 1, 5),
             'move': load_spritesheet(os.path.join(textures, 'player_move.png'), 1, 6)
         }
+        self.hp_bar = Icon((10, 50), img='hp_bar.bmp')
         self.image = self.images['idle'][0][0]
         self.direction = 0
         self.hitted = 0
@@ -429,8 +430,9 @@ class Player(Entity):
 
     def update(self, ms):
         # print(self.hp)
+        self.hp_bar.image = pg.transform.scale(self.hp_bar.image, (int(self.hp / self.max_hp * 100), 10))
         if self.hitted:
-            if self.hitted >= 2.5:
+            if self.hitted >= 2.1:
                 self.hitted = False
             else:
                 self.hitted += ms / 1000
