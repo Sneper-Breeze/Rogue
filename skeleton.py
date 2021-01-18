@@ -370,9 +370,26 @@ class Boss(Enemy):
         super().__init__(pos, img=img, hp=ENEMY_HP * 15)
         self.seconds = 0
         self.img = img
+        self.images = {
+            'idle': load_spritesheet(os.path.join(textures, 'boss_idle.png'), 1, 8)
+        }
+        self.anim_state = 'idle'
+        self.anim_index = 0
+        self.direction = 0
+        self.anim_delay = 0.5
+        self.anim_time = 0
 
     def update(self, target, ms):
+        self.image = self.images[self.anim_state][self.anim_index][self.direction]
+        self.rect = self.image.get_rect().move(self.rect.topleft)
+
         self.seconds += ms
+        self.anim_time += ms
+
+        if self.anim_time > self.anim_delay:
+            self.anim_index = (self.anim_index + 1) % len(self.images[self.anim_state][self.anim_index])
+            self.anim_time = 0
+
         delta_x = delta_y = 0
 
         if target.rect.centerx < self.rect.centerx:
@@ -411,7 +428,8 @@ class Player(Entity):
         super().__init__(pos, PLAYER_HP, PLAYER_HP, PLAYER_DAMAGE, PLAYER_SPEED, img)
         self.killed = False
         self.sounds = {
-            'footsteps': load_sounds('footstep', 'ogg')
+            'footsteps': load_sounds('footstep', 'ogg'),
+            'dash': load_sounds('knifeSlice', 'ogg')
         }
         self.images = {
             'idle': load_spritesheet(os.path.join(textures, 'player_idle.png'), 1, 5),
@@ -517,6 +535,8 @@ class Player(Entity):
     def start_dash(self):
         if self.dash_time is not None and self.dash_time < 1:
             return
+
+        random.choice(self.sounds['dash']).play()
 
         self.is_dashing = True
         self.dash_time = 0
