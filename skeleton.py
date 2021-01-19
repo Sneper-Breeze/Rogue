@@ -471,7 +471,7 @@ class Player(Entity):
 
     def update(self, ms):
         # print(self.hp)
-        if self.hp != self.hp_bar.image.get_size()[0]:
+        if self.hp != self.hp_bar.image.get_size()[0] and self.hp >= 0:
             self.hp_bar.image = pg.transform.scale(self.hp_bar.image, 
                 (int(self.hp / self.max_hp * 100), 10))
         if self.hitted:
