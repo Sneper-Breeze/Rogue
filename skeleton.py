@@ -469,26 +469,6 @@ class Player(Entity):
         else:
             y1 = self.rect.top
             y2 = self.rect.bottom + delta_y
-        view = pg.Rect(x1, y1, x2 - x1, y2 - y1)
-        sprites = []
-        move = True
-
-        # находим твёрдые блоки в области
-        # вроде работает. я не знаю как проверить это писец
-        for sprite in Object.hard_blocks:
-            if sprite.rect.colliderect(view):
-                sprites.append(sprite)
-
-        # пересекается ли линии ходьбы с твёрдыми блоками. я вообще в ах@@э
-        for sprite in sprites:
-            l1 = Line([x1, y1], [x2, y2])
-            rect = sprite.rect
-            if Intersection(l1, Line([rect.left, rect.top], [rect.right, rect.top])) or\
-               Intersection(l1, Line([rect.left, rect.top], [rect.left, rect.bottom])) or\
-               Intersection(l1, Line([rect.left, rect.bottom], [rect.right, rect.bottom])) or\
-               Intersection(l1, Line([rect.right, rect.top], [rect.right, rect.bottom])):
-                move = False
-                break
 
         view = pg.Rect(x1, self.rect.y, x2 - x1, self.rect.height)
         sprites = []
@@ -500,7 +480,7 @@ class Player(Entity):
                 sprites.append(sprite)
 
         list_of_x = []
-        # пересекается ли линии ходьбы с твёрдыми блоками. я вообще в ах@@э
+        # пересекается ли линии ходьбы с твёрдыми блоками
         for sprite in sprites:
             l1 = Line([view.x, view.y], [view.left, view.bottom])
             rect = sprite.rect
@@ -527,7 +507,7 @@ class Player(Entity):
                 sprites.append(sprite)
 
         list_of_y = []
-        # пересекается ли линии ходьбы с твёрдыми блоками. я вообще в ах@@э
+        # пересекается ли линии ходьбы с твёрдыми блоками
         for sprite in sprites:
             l1 = Line([view.x, view.y], [view.left, view.bottom])
             rect = sprite.rect
@@ -698,7 +678,8 @@ class Game:
                     self.game_run()
 
     def menu_update(self):
-        self.clock.tick(FPS)
+        # self.clock.tick(FPS)
+        pass
 
     def menu_render(self):
         self.screen.fill('black')
