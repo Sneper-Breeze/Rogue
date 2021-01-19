@@ -229,12 +229,10 @@ class Enemy(Entity):
         sprites = []
 
         # находим твёрдые блоки в области
-        # вроде работает. я не знаю как проверить это писец
         for sprite in Object.hard_blocks:
             if sprite.rect.colliderect(view):
                 sprites.append(sprite)
 
-        # пересекается ли линии ходьбы с твёрдыми блоками. я вообще в ах@@э
         for sprite in sprites:
             l1 = Line([x1, y1], [x2, y2])
             rect = sprite.rect
@@ -601,7 +599,6 @@ class Level:
                         continue
 
                     Object((x * TILE_SIZE, y * TILE_SIZE), TILES[symbol], symbol in HARD_TILES)
-
         for enemy in enemies_chars:
             if enemy[0] == 'e':
                 Enemy(enemy[1], hp=ENEMY_HP * self.k, damage=ENEMY_DAMAGE * self.k)
@@ -614,6 +611,7 @@ class Game:
         pg.init()
         self.init_screen()
         self.clock = pg.time.Clock()
+        self.boss_killed_time = False
         self.menu_running, self.game_running = True, False
         self.init_groups()
         self.player = None
@@ -643,7 +641,6 @@ class Game:
         Entity.entities = self.entities
         Enemy.enemies = self.enemies
         Icon.icons = self.icons
-        # Player.players = self.players
 
     def menu_run(self):
         self.button = load_image(os.path.join(textures, 'Start1.png'))
@@ -726,7 +723,8 @@ class Game:
 
     def game_update(self):
         ms = self.clock.tick(FPS)
-        # self.k += ms / 1000000
+        if self.boss_killed_time >= 1:
+            self.boss_killed_time += ms / 1000
         self.player.update(ms)
         for bullet in Bullet.bullets:
             bullet.update(self.player, ms=ms)
@@ -737,15 +735,16 @@ class Game:
             enemy.update(self.player, ms=ms)
 
         if not Enemy.enemies:
-            Boss((-200, -200), hp=ENEMY_HP * self.k * 5, damage=ENEMY_DAMAGE * self.k * 1.2)
-            if self.boss:
-                self.new_level()
-                return
+            if not self.boss:
+                Boss((-200, -200), hp=ENEMY_HP * self.k * 0.2, damage=ENEMY_DAMAGE * self.k * 1.2)
+            if self.boss or self.boss_killed_time:
+                if not self.boss_killed_time:
+                    self.boss_killed_time = 1
+                elif self.boss_killed_time >= 3:
+                    self.boss_killed_time = False
+                    self.new_level()
+                    return
             self.boss = True
-
-        # for enemy in self.level.enemies:
-        #     if enemy.update(self.player, ms):
-        #         self.level.enemies.remove(enemy)
 
         # обновляем положение всех спрайтов
         for sprite in self.all_sprites:
