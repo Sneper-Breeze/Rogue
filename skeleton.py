@@ -12,11 +12,11 @@ TILE_SIZE = 32
 WIN_SIZE = pg.Rect(0, 0, 1024, 720)
 TILES = {
     ' ': 'space.bmp', # Пустота
-    '.': 'floor.bmp', # Пол
+    '.': ['floor1.bmp', 'floor2.bmp', 'floor3.bmp', 'floor4.bmp', 'floor5.bmp'], # Пол
     '#': 'wall.bmp', # Стена
-    '@': 'floor.bmp', # Игрок
-    '%': 'floor.bmp', # Враг 1
-    ':': 'floor.bmp' # Враг 2
+    '@': ['floor1.bmp', 'floor2.bmp', 'floor3.bmp', 'floor4.bmp', 'floor5.bmp'], # Игрок
+    '%': ['floor1.bmp', 'floor2.bmp', 'floor3.bmp', 'floor4.bmp', 'floor5.bmp'], # Враг 1
+    ':': ['floor1.bmp', 'floor2.bmp', 'floor3.bmp', 'floor4.bmp', 'floor5.bmp'] # Враг 2
 }
 HARD_TILES = ['#']
 ENEMY_HP = 100
@@ -681,8 +681,12 @@ class Level:
                         enemies_chars.append(('t', (x * TILE_SIZE, y * TILE_SIZE)))
                     if symbol == ' ':
                         continue
-
-                    Object((x * TILE_SIZE, y * TILE_SIZE), TILES[symbol], symbol in HARD_TILES)
+                    if symbol == '.' or symbol == ':' or symbol == '%':
+                        r = random.choice(TILES[symbol])
+                        print(r)
+                        Object((x * TILE_SIZE, y * TILE_SIZE), r, symbol in HARD_TILES)
+                    else:
+                        Object((x * TILE_SIZE, y * TILE_SIZE), TILES[symbol], symbol in HARD_TILES)
         for enemy in enemies_chars:
             if enemy[0] == 'e':
                 Enemy(enemy[1], hp=ENEMY_HP * self.k, damage=ENEMY_DAMAGE * self.k)
@@ -745,6 +749,10 @@ class Game:
                     self.menu_running = False
             if event.type == pg.MOUSEBUTTONUP:
                 if self.buttonrect.collidepoint(event.pos):
+                    self.screen.fill('black')
+                    download = load_image(os.path.join(textures, 'Zagruzka.bmp'))
+                    self.screen.blit(download, download.get_rect().move(WIN_SIZE.center))
+                    pg.display.flip()
                     self.game_run()
 
     def menu_update(self):
@@ -832,6 +840,10 @@ class Game:
                     self.boss_killed_time = 1
                 elif self.boss_killed_time >= 3:
                     self.boss_killed_time = False
+                    self.screen.fill('black')
+                    download = load_image(os.path.join(textures, 'Zagruzka.bmp'))
+                    self.screen.blit(download, download.get_rect().move(WIN_SIZE.center))
+                    pg.display.flip()
                     self.new_level()
                     return
             self.boss = True
