@@ -737,6 +737,10 @@ class Game:
             self.player = Player(self.level.starting_point)
         else:
             self.player.rect.topleft = self.level.starting_point
+            if self.player.hp + 30 >= self.player.max_hp:
+                self.player.hp = self.player.max_hp
+            else:
+                self.player.hp += 30
         if self.player.is_dashing:
             self.player.end_dash()
             self.player.dash_time = 1
@@ -783,7 +787,7 @@ class Game:
 
         if not Enemy.enemies:
             if not self.boss:
-                Boss((-200, -200), hp=ENEMY_HP * self.k * 0.2, damage=ENEMY_DAMAGE * self.k * 1.2)
+                Boss((-200, -200), hp=ENEMY_HP * self.k * 4, damage=ENEMY_DAMAGE * self.k * 1.2)
             if self.boss or self.boss_killed_time:
                 if not self.boss_killed_time:
                     self.boss_killed_time = 1
