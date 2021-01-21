@@ -101,6 +101,7 @@ def load_sounds(beginning, file_type):
     return sounds
 
 
+# отдельный класс иконки, так как это не объект и ему не нужны коллизии
 class Icon(pg.sprite.Sprite):
     # icons = None
     def __init__(self, pos=(1, 1), img='None.png'):
@@ -111,6 +112,7 @@ class Icon(pg.sprite.Sprite):
         self.rect = self.rect.move(*pos)
 
     def update(self, img):
+        # чтобы проще менять изображение
         self.img = img
         self.image = load_image(os.path.join(textures, img))
 
@@ -138,23 +140,21 @@ class Object(pg.sprite.Sprite):
 
 
 class Entity(Object):
-    # Не уверен, что нужно делать all sprites для Entity, он же добавляется в all sprites у object
-    # Поэтому пока что закоменчу эту группу
-    # all_sprites = None
+    # класс сущности, от него наследуются все двигающиеся объекты
     entities = None
     def __init__(self, pos, hp, max_hp, damage, speed, img=os.path.join(textures, 'none.png')):
         super().__init__(pos, img)
-        # super(Object, self).__init__(Entity.entities)
         self.pos = pos
         self.hitted = False
         self.max_hp = max_hp
         self.hp = hp
         self.speed = speed
         self.damage = damage
-        # self.add(Entity.all_sprites)
         self.add(Entity.entities)
 
     def get_hit(self, damage):
+        # hitted - чтобы враги не получали два удара за один дэш
+        # и получали краткую неуязвимость после получения удара
         if not self.hitted:
             self.hp -= damage
             if self.hp <= 0:
@@ -167,18 +167,16 @@ class Entity(Object):
     def hit(self, other):
         other.get_hit(self.damage)
 
-    # проверку можно ли походить на новые координаты я думаю лучше сделать в
-    # игре когда она будет вызывать move, чтобы не передавать сюда level
-    def move(self, x, y):
-        new_pos = self.pos[0] + x, self.pos[1] + y
-        if new_pos[0] != self.pos[0] and new_pos[1] != self.pos[1] or \
-            max(abs(new_pos[0] - self.pos[0]),
-            abs(new_pos[1] - self.pos[1])) > self.speed:
-            return False
-
-        self.pos = new_pos
-        self.rect.topleft = self.pos
-        return True
+    # метод движения, который мы в итоге не использовали
+    #def move(self, x, y):
+    #    new_pos = self.pos[0] + x, self.pos[1] + y
+    #    if new_pos[0] != self.pos[0] and new_pos[1] != self.pos[1] or \
+    #        max(abs(new_pos[0] - self.pos[0]),
+    #        abs(new_pos[1] - self.pos[1])) > self.speed:
+    #        return False
+    #    self.pos = new_pos
+    #    self.rect.topleft = self.pos
+    #    return True
 
 
 class Enemy(Entity):
@@ -197,6 +195,7 @@ class Enemy(Entity):
 
     def update(self, target, ms):
         self.anim_time += ms / 1000
+        # даёт неуязвимость после получения урона на 0.1 секунду(изначально hitted = 1)
         if self.hitted:
             if self.hitted >= 1.1:
                 self.hitted = False
@@ -284,6 +283,7 @@ class Turret(Enemy):
     def update(self, target, ms):
         # print(self.damage)
         # print(self.hp)
+        # даёт неуязвимость после получения урона на 0.1 секунду(изначально hitted = 1)
         if self.hitted:
             if self.hitted >= 1.1:
                 self.hitted = False
@@ -300,6 +300,8 @@ class Turret(Enemy):
         self.seconds += ms
         dist_x = abs(target.rect.centerx - self.rect.centerx)
         dist_y = abs(target.rect.centery - self.rect.centery)
+        # если игрок достаточно быстро и прошло больше 4 секунд с последнего выстрела
+        # то турель стреляет
         if dist_x <= 500 and dist_y <= 500:
             if self.seconds >= 1000:
                 self.seconds = 0
@@ -321,6 +323,7 @@ class Bullet(Object):
         # self.add(Enemy.enemies)
         # print(pos)
         super().__init__(pos, img)
+        # если пуля босса, то она меняется в размерах
         if isboss:
             self.image = pg.transform.scale(self.image, (15, 15))
         self.add(Bullet.bullets)
@@ -370,6 +373,7 @@ class Bullet(Object):
         else:
             self.rect.centerx = self.rect.centerx - self.speed * math.cos(self.angle) * ms / 1000
             self.rect.centery = self.rect.centery - self.speed * math.sin(self.angle) * ms / 1000
+        # пули босса не исчезают после нанесения урона игроку и со временем, проходят сквозь стены
         if self.rect.colliderect(target):
             if not target.is_dashing:
                 target.get_hit(self.damage)
@@ -411,6 +415,7 @@ class Boss(Enemy):
             self.anim_time = 0
 
         delta_x = delta_y = 0
+        # даёт неуязвимость после получения урона на 0.1 секунду(изначально hitted = 1)
         if self.hitted:
             if self.hitted >= 1.1:
                 self.hitted = False
@@ -436,10 +441,11 @@ class Boss(Enemy):
                 target.get_hit(self.damage)
         dist_x = abs(target.rect.centerx - self.rect.centerx)
         dist_y = abs(target.rect.centery - self.rect.centery)
+        # если игрок достаточно быстро и прошло больше 4 секунд с последнего выстрела
+        # то босс стреляет
         if dist_x <= 500 and dist_y <= 500:
             if self.seconds >= 4000:
                 self.seconds = 0
-                # print(self.pos, 't')
                 Bullet(self.rect.center, target, 25, speed=300, isboss=True)
 
 
@@ -470,10 +476,12 @@ class Player(Entity):
         self.dash_directions = None
 
     def update(self, ms):
-        # print(self.hp)
+        # если нразмер хп бара не равен хп игрока, то он меняется
+        # сделал так для оптимизации
         if self.hp != self.hp_bar.image.get_size()[0] and self.hp >= 0:
             self.hp_bar.image = pg.transform.scale(self.hp_bar.image, 
                 (int(self.hp / self.max_hp * 100), 10))
+        # даёт неуязвимость после получения урона на 1.1 секунду(изначально hitted = 1)
         if self.hitted:
             if self.hitted >= 2.1:
                 self.hitted = False
@@ -631,6 +639,7 @@ class Player(Entity):
         self.dash_directions = None
 
     def get_hit(self, damage):
+        # игрок не получает урон если не прошло достаточно времени с последнего получения урона
         if not self.hitted:
             if self.is_dashing:
                 pass
@@ -708,6 +717,7 @@ class Game:
         self.button = None
         self.buttonrect = None
         self.level = None
+
         self.k = 0
 
     def init_screen(self):
@@ -772,6 +782,9 @@ class Game:
         self.entities.empty()
         self.enemies.empty()
         self.bullets.empty()
+        # коэффицент сложности к увеличивается на 1 если это первый запуск
+        # и на четверть если не первый, передаётся в левел 
+        # враги в левели создаются с увеличиными в к раз статами, босс в гейме тоже
         if self.k == 0:
             self.k += 1
         else:
@@ -798,7 +811,7 @@ class Game:
             self.game_render()
             self.game_events()
             self.game_update()
-
+        # если игрок умер, то к становится 1(чтобы сложность была изначальной)
         if not self.player.alive():
             self.k = 1
             self.player = None
@@ -834,6 +847,7 @@ class Game:
 
         if not Enemy.enemies:
             if not self.boss:
+                # босс создаётся за экраном, его статы увеличиваются на к и больше стандартных
                 Boss((-200, -200), hp=ENEMY_HP * self.k * 4, damage=ENEMY_DAMAGE * self.k * 1.2)
             if self.boss or self.boss_killed_time:
                 if not self.boss_killed_time:
@@ -846,6 +860,7 @@ class Game:
                     pg.display.flip()
                     self.new_level()
                     return
+            # если self.boss == true, то босс не создаётся и осуществляется переход на следующий уровень
             self.boss = True
 
         # обновляем положение всех спрайтов
