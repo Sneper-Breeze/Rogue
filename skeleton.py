@@ -32,13 +32,14 @@ BULLET_SPEED = PLAYER_SPEED * 0.5
 PLAYER_DAMAGE = 25
 
 
+# формула прямой по двум точкам
 def Line(p1, p2):
     A = (p1[1] - p2[1])
     B = (p2[0] - p1[0])
     C = (p1[0]*p2[1] - p2[0]*p1[1])
     return A, B, -C
 
-
+# формула нахождения пересечения двух прямых
 def Intersection(L1, L2):
     D  = L1[0] * L2[1] - L1[1] * L2[0]
     if D != 0:
@@ -208,6 +209,7 @@ class Enemy(Entity):
             self.anim_index = (self.anim_index + 1) % len(self.images[self.anim_state])
             self.anim_time = 0
 
+        # находит где игрок относительно себя и идёт в его направлении
         delta_x = delta_y = 0
         if target.rect.centerx < self.rect.centerx:
             delta_x -= self.speed * ms / 1000
@@ -225,7 +227,6 @@ class Enemy(Entity):
             delta_y += self.speed * ms / 1000
 
         # находим область в которой мы смотрим твёрдые блоки
-        # работает исправно
         if delta_x < 0:
             x1 = self.rect.left - abs(delta_x)
             x2 = self.rect.right
@@ -246,6 +247,7 @@ class Enemy(Entity):
             if sprite.rect.colliderect(view):
                 sprites.append(sprite)
 
+        # смотрим может ли он походит, с помощью функций для прямых
         for sprite in sprites:
             l1 = Line([x1, y1], [x2, y2])
             rect = sprite.rect
@@ -258,7 +260,7 @@ class Enemy(Entity):
             self.rect.x += delta_x
             self.rect.y += delta_y
 
-
+        # получение и нанесение урона
         if self.rect.colliderect(target):
             if target.is_dashing:
                 target.hit(self)
@@ -538,11 +540,11 @@ class Player(Entity):
             y1 = self.rect.top
             y2 = self.rect.bottom + delta_y
 
+        # находим область в которой нам нужно проверить твёрдые блоки
         view = pg.Rect(x1, self.rect.y, x2 - x1, self.rect.height)
         sprites = []
 
         # находим твёрдые блоки в области
-        # вроде работает. я не знаю как проверить это писец
         for sprite in Object.hard_blocks:
             if sprite.rect.colliderect(view):
                 sprites.append(sprite)
@@ -565,11 +567,11 @@ class Player(Entity):
         else:
             self.rect.x += delta_x
 
+        # находим область в которой нам нужно проверить твёрдые блоки
         view = pg.Rect(self.rect.x, y1, self.rect.width, y2-y1)
         sprites = []
 
         # находим твёрдые блоки в области
-        # вроде работает. я не знаю как проверить это писец
         for sprite in Object.hard_blocks:
             if sprite.rect.colliderect(view):
                 sprites.append(sprite)
@@ -742,6 +744,7 @@ class Game:
         Icon.icons = self.icons
 
     def menu_run(self):
+        # создаём кнопки меню
         self.button = load_image(os.path.join(textures, 'Start1.png'))
         self.buttonrect = self.button.get_rect()
         self.buttonrect.center = (WIN_SIZE.w // 2, WIN_SIZE.h // 2)
@@ -758,7 +761,9 @@ class Game:
                 if event.key == pg.K_ESCAPE:
                     self.menu_running = False
             if event.type == pg.MOUSEBUTTONUP:
+                # проверяем нажал ли игрок на кнопку
                 if self.buttonrect.collidepoint(event.pos):
+                    # выводим картинку загрузки и запускаем цикл игры
                     self.screen.fill('black')
                     download = load_image(os.path.join(textures, 'Zagruzka.bmp'))
                     self.screen.blit(download, download.get_rect().move(WIN_SIZE.center))
@@ -841,7 +846,9 @@ class Game:
             bullet.update(self.player, ms=ms)
         if not self.player.alive():
             self.game_running = False
+        # центрируем камеру на игроке
         self.camera.update(self.player)
+        # применяем камеру
         for enemy in Enemy.enemies:
             enemy.update(self.player, ms=ms)
 
