@@ -70,24 +70,12 @@ def load_spritesheet(img, rows, cols, colorkey=-1):
     width, height = full_rect.w / cols, full_rect.h / rows
     for row in range(rows):
         for col in range(cols):
+            # Создаём прозрачную поверхность
             image = pg.Surface((width, height), pg.SRCALPHA)
             rect = pg.Rect((width * col, height * row, width * col + width, height * row + height))
+            # Отрисовываем на созданной поверхности кусочек большого изображения
             image.blit(full_image, (0, 0), rect)
-            sprites.append((image, pg.transform.flip(image, True, False)))
-    return sprites
-
-
-def load_spritesheet(img, rows, cols, colorkey=-1):
-    sprites = list()
-    full_image = pg.image.load(img)
-    full_image.convert_alpha()
-    full_rect = full_image.get_rect()
-    width, height = full_rect.w / cols, full_rect.h / rows
-    for row in range(rows):
-        for col in range(cols):
-            image = pg.Surface((width, height), pg.SRCALPHA)
-            rect = pg.Rect((width * col, height * row, width * col + width, height * row + height))
-            image.blit(full_image, (0, 0), rect)
+            # Добавляем спрайт и его повёрнутую копию в список
             sprites.append((image, pg.transform.flip(image, True, False)))
     return sprites
 
@@ -96,6 +84,7 @@ def load_sounds(beginning, file_type):
     files = filter(lambda file: file.startswith(beginning) and file.endswith(f'.{file_type}'),
                    os.listdir(sounds_folder))
     sounds = list()
+    # Пробегаемся по всем файлам с заданным расширением в папке со звуками
     for filename in files:
         sounds.append(pg.mixer.Sound(os.path.join(sounds_folder, filename)))
     return sounds
@@ -183,6 +172,14 @@ class Enemy(Entity):
     enemies = None
     def __init__(self, pos, hp=ENEMY_HP, damage=ENEMY_DAMAGE, img='enemy.bmp'):
         super().__init__(pos, hp, hp, damage, ENEMY_SPEED, img)
+        # В каждом анимированном классе есть следующие аттрибуты для работы системы анимаций:
+        #   images - словарь, в котором хранятся изображения, сгруппированные по действиям:
+        #   (бег, idle анимация и т.д)
+        #   anim_state - текущая анимация, один из ключей словаря images
+        #   anim_index - текущий индекс анимации
+        #   direction - текущее направление движения, 0 - вправо, 1 - влево
+        #   anim_delay - промежуток времени, через который сменяется текущий кадр анимации
+        #   anim_time - переменная, хранящая время после последней смены кадра
         self.images = {
             'idle/movement': load_spritesheet(os.path.join(textures, 'slime_idle_movement.png'), 1, 8)
         }
@@ -271,6 +268,14 @@ class Turret(Enemy):
         super().__init__(pos, hp=hp, damage=damage, img=img)
         self.pos = pos
         self.seconds = 0
+        # В каждом анимированном классе есть следующие аттрибуты для работы системы анимаций:
+        #   images - словарь, в котором хранятся изображения, сгруппированные по действиям:
+        #   (бег, idle анимация и т.д)
+        #   anim_state - текущая анимация, один из ключей словаря images
+        #   anim_index - текущий индекс анимации
+        #   direction - текущее направление движения, 0 - вправо, 1 - влево
+        #   anim_delay - промежуток времени, через который сменяется текущий кадр анимации
+        #   anim_time - переменная, хранящая время после последней смены кадра
         self.images = {
             'idle': load_spritesheet(os.path.join(textures, 'turret_idle.png'), 1, 5)
         }
@@ -332,6 +337,14 @@ class Bullet(Object):
         self.target = target
         self.damage = damage
         self.speed = speed
+        # В каждом анимированном классе есть следующие аттрибуты для работы системы анимаций:
+        #   images - словарь, в котором хранятся изображения, сгруппированные по действиям:
+        #   (бег, idle анимация и т.д)
+        #   anim_state - текущая анимация, один из ключей словаря images
+        #   anim_index - текущий индекс анимации
+        #   direction - текущее направление движения, 0 - вправо, 1 - влево
+        #   anim_delay - промежуток времени, через который сменяется текущий кадр анимации
+        #   anim_time - переменная, хранящая время после последней смены кадра
         self.images = {
             'idle': load_spritesheet(os.path.join(textures, 'bullet.png'), 1, 6)
         }
@@ -394,6 +407,14 @@ class Boss(Enemy):
         super().__init__(pos, hp=hp, damage=damage, img=img)
         self.seconds = 0
         self.img = img
+        # В каждом анимированном классе есть следующие аттрибуты для работы системы анимаций:
+        #   images - словарь, в котором хранятся изображения, сгруппированные по действиям:
+        #   (бег, idle анимация и т.д)
+        #   anim_state - текущая анимация, один из ключей словаря images
+        #   anim_index - текущий индекс анимации
+        #   direction - текущее направление движения, 0 - вправо, 1 - влево
+        #   anim_delay - промежуток времени, через который сменяется текущий кадр анимации
+        #   anim_time - переменная, хранящая время после последней смены кадра
         self.images = {
             'idle': load_spritesheet(os.path.join(textures, 'boss_idle.png'), 1, 8)
         }
@@ -457,6 +478,14 @@ class Player(Entity):
             'footsteps': load_sounds('footstep', 'ogg'),
             'dash': load_sounds('knifeSlice', 'ogg')
         }
+        # В каждом анимированном классе есть следующие аттрибуты для работы системы анимаций:
+        #   images - словарь, в котором хранятся изображения, сгруппированные по действиям:
+        #   (бег, idle анимация и т.д)
+        #   anim_state - текущая анимация, один из ключей словаря images
+        #   anim_index - текущий индекс анимации
+        #   direction - текущее направление движения, 0 - вправо, 1 - влево
+        #   anim_delay - промежуток времени, через который сменяется текущий кадр анимации
+        #   anim_time - переменная, хранящая время после последней смены кадра
         self.images = {
             'idle': load_spritesheet(os.path.join(textures, 'player_idle.png'), 1, 5),
             'move': load_spritesheet(os.path.join(textures, 'player_move.png'), 1, 6)
@@ -784,7 +813,7 @@ class Game:
         self.bullets.empty()
         # коэффицент сложности к увеличивается на 1 если это первый запуск
         # и на четверть если не первый, передаётся в левел 
-        # враги в левели создаются с увеличиными в к раз статами, босс в гейме тоже
+        # враги в левеле создаются с увеличиными в к раз статами, босс в гейме тоже
         if self.k == 0:
             self.k += 1
         else:

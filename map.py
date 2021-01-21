@@ -10,14 +10,14 @@ ENEMIES = [':', '%']
 
 class Generator:
     def __init__(self, tiles):
-        self.width = 100
-        self.height = 100
-        self.max_rooms = 20
-        self.min_room_dimens = 10
-        self.max_room_dimens = 30
-        self.rooms_overlap = False
-        self.random_connections = 0
-        self.random_spurs = 0
+        self.width = 100 # Ширина всей карты
+        self.height = 100 # Длина (высота) всей карты
+        self.max_rooms = 20 # Максимальное количество комнат
+        self.min_room_dimens = 10 # Минимальный размер комнаты
+        self.max_room_dimens = 30 # Максимальный размер комнаты
+        self.rooms_overlap = False # Должны ли комнаты соединяться (когда между ними стена в 1 блок)
+        self.random_connections = 0 # Количество случайных корридоров между комнатами
+        self.random_spurs = 0 # Количество случайных тупиков
         self.tiles = tiles
         self.level = list()
         self.room_list = list()
